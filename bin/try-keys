@@ -1,0 +1,109 @@
+#!/usr/bin/env ruby
+
+require 'aws-sdk'
+require 'json'
+
+# ASSUMPTION: if we have a key pair to test, and we haven't found its secret
+# key already, then we will disregard the possibility that the access key
+# exists, but is disabled (i.e. may later be re-enabled).  We make this
+# assumption because otherwise, in theory, we'd have to re-test every bad
+# access key forever into the future, just in case it shows up.
+
+# Therefore we're left with the following possibilites:
+
+# - access key good, secret key good
+#   - There is definitely no point ever testing any *other* secret keys
+#     against this access key
+#   - Once reported, we will assume that some out-of-band thing is going to
+#     arrange for this access key to be deleted.  Hence, we will not test
+#     this access+secret again.
+# - access key good, secret key bad
+#   - No point testing again with /this/ secret key, but we may test with
+#     other secret keys.
+# - access key is bad
+#   - The key either doesn't exist (in which case we can safely assume it will
+#     never exist), or exists but is disabled (but we disregard this; see
+#     ASSUMPTION).
+#   - Therefore, never test this access key again, with any secret key.
+
+# So for each access key, it's one of:
+#   - access key bad.  never test again, with any secret.
+#   - secret found.  never test again, with any secret.
+#     - record the IAM user it authenticated as
+#     - record the secret key (I would say "hash of" the key, but we already
+#       have so many keys around...)
+#   - secret key not found (yet).  Record the failed secret keys; try other secret keys.
+
+keys_to_try = JSON.parse($stdin.read)
+
+@state_file = "try-keys.json"
+
+def load_state
+  begin
+    JSON.parse(IO.read @state_file)
+  rescue Errno::ENOENT
+    {}
+  end
+end
+
+def save_state(state)
+  tmp = @state_file + ".tmp"
+  IO.write(tmp, JSON.pretty_generate(state)+"\n")
+  File.rename tmp, @state_file
+end
+
+state = load_state
+state["by_access_key"] ||= {}
+
+keys_to_try.each do |access_key, secret_key|
+  key_info = (state["by_access_key"][access_key] ||= {})
+
+  if key_info["bad_key"]
+    # Already known to be bad; we assume it will never become good
+    puts "access key #{access_key} is already marked as a bad_key - skipping"
+    next
+  end
+
+  if key_info["secret_found"]
+    # No point looking any further...
+    puts "access key #{access_key} is already marked as compromised - skipping"
+    next
+  end
+
+  if ((key_info["tried_secret_access_keys"] || []).include? secret_key)
+    # Already tried this secret
+    puts "already tried this secret for access key #{access_key} - skipping"
+    next
+  end
+
+  # Try it!
+  iam = Aws::IAM::Client.new(access_key_id: access_key, secret_access_key: secret_key)
+
+  begin
+    user_arn = begin
+      iam.get_user.user.arn
+    rescue Aws::IAM::Errors::AccessDenied => e
+      m = e.to_s.match /User: (arn:aws:iam::\d+:user\/\S+) is not authorized/
+      m or raise
+      m[1]
+    end
+
+    puts "found the secret for #{access_key} - authenticated as #{user_arn}"
+    key_info["secret_found"] = true
+    key_info["secret_access_key"] = secret_key
+    key_info["user_arn"] = user_arn
+    key_info.delete "tried_secret_access_keys"
+
+  rescue Aws::IAM::Errors::InvalidClientTokenId
+    puts "marking access key #{access_key} as a bad_key"
+    key_info["bad_key"] = true
+    key_info.delete "tried_secret_access_keys"
+
+  rescue Aws::IAM::Errors::SignatureDoesNotMatch
+    puts "marking access key #{access_key} with a wrong secret key"
+    (key_info["tried_secret_access_keys"] ||= []) << secret_key
+
+  end
+
+  save_state state
+end

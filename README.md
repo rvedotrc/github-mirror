@@ -35,6 +35,11 @@ contain secrets:
 Analyse all the interesting commits found so far (note: not incremental):
 
 `  ./bin/analyse-commits > commits-and-secrets.json`  
+`  cat commits-and-secrets.json | jq -c '.old_permutations[], .new_permutations[]' | sort -u | jq --slurp . > keys-to-try.json`  
+
+Try the keys to see which ones are good:
+
+`  ./bin/try-keys < keys-to-try.json`  
 
 TODO
 ----
