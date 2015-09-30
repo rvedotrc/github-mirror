@@ -32,6 +32,10 @@ contain secrets:
 
 `  ./bin/scan-commits`  
 
+Analyse all the interesting commits found so far (note: not incremental):
+
+`  ./bin/analyse-commits > commits-and-secrets.json`  
+
 TODO
 ----
 
