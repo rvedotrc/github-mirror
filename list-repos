@@ -1,0 +1,28 @@
+#!/usr/bin/env ruby
+
+require 'github_api'
+
+user = "rvedotrc"
+pass = IO.read("#{ENV["HOME"]}/e/github/bbc-mirror.key").chomp
+
+github = Github.new basic_auth: user+":"+pass #, auto_pagination: true
+
+# github.repos.list.each do |r|
+#   puts "#{r.pushed_at} #{r.git_url}"
+# end
+
+data = []
+
+github.repos.list.each_page do |page|
+  page.each do |r|
+    $stderr.puts "#{r.pushed_at} #{r.git_url}"
+    data << {
+      git_url: r.git_url,
+      pushed_at: r.pushed_at,
+    }
+  end
+end
+
+require 'json'
+puts JSON.pretty_generate(data)
+
