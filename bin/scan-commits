@@ -92,7 +92,9 @@ def scan_new_commits(old_refs, curr_refs, local_dir, git_dir)
   old_commits = old_commits - curr_commits
   return [] if new_commits.empty?
 
-  cmdline = %w[ git log --reverse -p ]
+  # How many lines apart might the access + secret key be from each other?
+  # Let's try 10.
+  cmdline = %w[ git log --reverse -U10 -p ]
   cmdline.concat new_commits
   cmdline.concat old_commits.map {|c| "^"+c}
   puts cmdline.join " "
