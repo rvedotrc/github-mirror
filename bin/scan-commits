@@ -164,7 +164,7 @@ def save_new_refs(refs, local_dir)
   File.rename tmp_file, file
 end
 
-Dir.glob("var/*/*/mirror-changed").sort.each do |changed_file|
+Dir.glob("var/github/*/*/mirror-changed").sort.each do |changed_file|
   local_dir = File.dirname changed_file
   git_dir = "#{local_dir}/mirror"
   puts local_dir

@@ -133,7 +133,7 @@ data.each do |r|
     next
   end
 
-  local_dir = url.gsub("git://github.com/", "var/").gsub(/\.git$/, "")
+  local_dir = url.gsub("git://github.com/", "var/github/").gsub(/\.git$/, "")
 
   Dir.chdir @pwd
 

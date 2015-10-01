@@ -34,7 +34,7 @@ def permute_key_pairs(secrets)
   end.flatten(1)
 end
 
-Dir.glob("var/*/*/interesting.json").each do |interesting_file|
+Dir.glob("var/github/*/*/interesting.json").each do |interesting_file|
   data = JSON.parse(IO.read interesting_file)
 
   data.each do |c|
