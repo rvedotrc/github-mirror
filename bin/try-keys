@@ -16,7 +16,8 @@ require 'json'
 #     against this access key
 #   - Once reported, we will assume that some out-of-band thing is going to
 #     arrange for this access key to be deleted.  Hence, we will not test
-#     this access+secret again.
+#     this access+secret again.  We could change that approach – we could
+#     periodically re-check the key pair to see if it's still active.
 # - access key good, secret key bad
 #   - No point testing again with /this/ secret key, but we may test with
 #     other secret keys.
@@ -80,18 +81,27 @@ keys_to_try.each do |access_key, secret_key|
   iam = Aws::IAM::Client.new(access_key_id: access_key, secret_access_key: secret_key)
 
   begin
-    user_arn = begin
-      iam.get_user.user.arn
+    user_arn = nil
+    account_aliases = nil
+
+    begin
+      user_arn = iam.get_user.user.arn
     rescue Aws::IAM::Errors::AccessDenied => e
       m = e.to_s.match /User: (arn:aws:iam::\d+:user\/\S+) is not authorized/
       m or raise
-      m[1]
+      user_arn = m[1]
+    end
+
+    begin
+      account_aliases = iam.list_account_aliases.account_aliases
+    rescue Aws::IAM::Errors::AccessDenied
     end
 
     puts "found the secret for #{access_key} - authenticated as #{user_arn}"
     key_info["secret_found"] = true
     key_info["secret_access_key"] = secret_key
     key_info["user_arn"] = user_arn
+    key_info["account_aliases"] = account_aliases
     key_info.delete "tried_secret_access_keys"
 
   rescue Aws::IAM::Errors::InvalidClientTokenId
