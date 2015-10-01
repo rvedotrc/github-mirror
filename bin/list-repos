@@ -1,9 +1,11 @@
 #!/usr/bin/env ruby
 
 require 'github_api'
+require 'json'
 
-user = "rvedotrc"
-pass = IO.read("#{ENV["HOME"]}/e/github/bbc-mirror.key").chomp
+config = JSON.parse(IO.read "etc/github-mirror.json")
+user = config["github"]["user"]
+pass = config["github"]["pass"]
 
 github = Github.new basic_auth: user+":"+pass #, auto_pagination: true
 
@@ -23,6 +25,4 @@ github.repos.list.each_page do |page|
   end
 end
 
-require 'json'
-puts JSON.pretty_generate(data)
-
+IO.write("var/list-repos.json", JSON.pretty_generate(data)+"\n")

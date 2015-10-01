@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 
 try_keys, account_list = ARGV
-try_keys ||= "try-keys.json"
-account_list ||= "aws-accounts.json"
+try_keys ||= "var/try-keys.json"
+account_list ||= "var/aws-accounts.json"
 
 require 'json'
 t = JSON.parse(IO.read try_keys)

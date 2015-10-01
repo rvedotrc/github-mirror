@@ -119,7 +119,9 @@ end
 
 ################################################################################
 
-data = JSON.parse(IO.read "list-repos.json")
+config = JSON.parse(IO.read "etc/github-mirror.json")
+
+data = JSON.parse(IO.read "var/list-repos.json")
 dry_run = false
 
 ignored_orgs = Set.new
@@ -128,7 +130,8 @@ data.each do |r|
   url = r["git_url"]
   pushed_at = r["pushed_at"]
   org = url.split('/')[3]
-  unless %w[ bbc BBC-PIPS bbc-sport bbc-fm-nk-core-eng ].include? org
+
+  unless config["github"]["allow_orgs"].nil? or config["github"]["allow_orgs"].include? org
     ignored_orgs << org
     next
   end
