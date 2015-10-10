@@ -40,12 +40,13 @@ contain secrets:
 
 Analyse all the interesting commits found so far (note: not incremental):
 
-`  ./bin/analyse-commits > commits-and-secrets.json`  
-`  cat commits-and-secrets.json | jq -c '.old_permutations[], .new_permutations[]' | sort -u | jq --slurp . > keys-to-try.json`  
+`  ./bin/analyse-commits > var/commits-and-secrets.json`  
+`  cat var/commits-and-secrets.json | jq -c '.old_permutations[], .new_permutations[]' | sort -u | jq --slurp . > var/keys-to-try.json`  
+`  cat var/commits-and-secrets.json | jq --slurp . | ./bin/activity-log`  
 
 Try the keys to see which ones are good:
 
-`  ./bin/try-keys < keys-to-try.json`  
+`  ./bin/try-keys < var/keys-to-try.json`  
 
 If you have many AWS accounts, you might want to use `./bin/which-accounts` to
 cross-reference that data to your list of accounts.  (Requires list of

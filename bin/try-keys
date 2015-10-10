@@ -37,7 +37,7 @@ require 'json'
 
 keys_to_try = JSON.parse($stdin.read)
 
-@state_file = "try-keys.json"
+@state_file = "var/try-keys.json"
 
 def load_state
   begin
