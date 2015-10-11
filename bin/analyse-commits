@@ -5,6 +5,7 @@
 
 require 'json'
 require 'set'
+require 'time'
 
 def extract_secrets(text)
   text = text.join ""
@@ -34,6 +35,61 @@ def permute_key_pairs(secrets)
   end.flatten(1)
 end
 
+def parse_local_dir(local_dir)
+  r = {
+    local_dir: local_dir,
+  }
+
+  if m = local_dir.match(/^var\/github\/(.*?)\/(.*)$/)
+    r[:github] = {
+      organisation: m[1],
+      repository: m[2],
+    }
+  end
+
+  r
+end
+
+def parse_commit(lines)
+  c = {
+    lines: lines,
+  }
+
+  lines.each_with_index do |l, i|
+    if m = l.match(/^commit (\w{40})$/)
+      c[:commit] = m[1]
+    elsif m = l.match(/^Author:\s*(.*)$/)
+      c[:author] = m[1]
+    elsif m = l.match(/^Date:\s*(.*)$/)
+      t = Time.parse(m[1]).utc
+      c[:time] = {
+        epoch: t.to_i,
+        iso: t.strftime('%Y-%m-%dT%H:%M:%SZ'),
+      }
+    elsif l == "\n"
+      c[:message] = lines[i+1 .. -2]
+    end
+  end
+
+  c
+end
+
+def parse_file(lines)
+  f = {
+    lines: lines,
+  }
+
+  lines.each do |l|
+    if m = l.match(/^(--- a|\+\+\+ b)\/(.*)$/)
+      f[:filename] = m[2]
+    end
+  end
+
+  f
+end
+
+out = []
+
 Dir.glob("var/github/*/*/interesting.json").each do |interesting_file|
   data = JSON.parse(IO.read interesting_file)
 
@@ -51,17 +107,22 @@ Dir.glob("var/github/*/*/interesting.json").each do |interesting_file|
     old_permutations = permute_key_pairs(old_secrets)
     new_permutations = permute_key_pairs(new_secrets)
 
-    puts JSON.pretty_generate({
-      "local_dir" => File.dirname(interesting_file),
-      "commit" => commit,
-      "file" => file,
+    out << {
+      "local_dir" => parse_local_dir(File.dirname(interesting_file)),
+      "commit" => parse_commit(commit),
+      "file" => parse_file(file),
       # "hunk" => hunk,
       "old_secrets" => old_secrets,
       "new_secrets" => new_secrets,
       "old_permutations" => old_permutations,
       "new_permutations" => new_permutations,
-    })
+    }
   end
 
 end
 
+# Ordered by *commit* time, not discovery time.  So new entries won't
+# necessarily appear at the end of the list.
+out.sort_by! {|i| i["commit"][:time][:epoch] }
+
+IO.write "var/commits-and-secrets.json", JSON.pretty_generate(out)+"\n"

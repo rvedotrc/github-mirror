@@ -3,34 +3,18 @@
 require 'json'
 require 'time'
 
-def date_of_commit(commit)
-  commit.each do |t|
-    break if t == "\n"
-    if m = t.match(/^Date:\s*(.*)$/)
-      return Time.parse m[1]
-    end
-  end
-end
-
 def do_permutation(entry, permutation, is_added)
-  t = entry["t"]
-  dir = entry["local_dir"]
-  file = entry["file"].first.chomp
+  t = entry["commit"]["time"]["iso"]
+  org = entry["local_dir"]["github"]["organisation"]
+  repo = entry["local_dir"]["github"]["repository"]
+  file = entry["file"]["filename"]
 
   access, secret = permutation
 
-  puts "#{is_added ? "+" : "-"} #{t} #{dir} #{file} #{access} #{secret}"
+  puts "#{is_added ? "+" : "-"} #{t} #{access} #{secret} #{org}/#{repo}/#{file}"
 end
 
-# The output of analyse-commits.  Wish an array wrapper.
-data = JSON.parse($stdin.read)
-
-data.each do |entry|
-  t = date_of_commit entry["commit"]
-  entry["t"] = t
-end
-
-data.sort_by! {|e| e["t"]}
+data = JSON.parse(IO.read "var/commits-and-secrets.json")
 
 data.each do |entry|
   entry["old_permutations"].each do |p|
