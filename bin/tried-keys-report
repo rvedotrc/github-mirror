@@ -3,6 +3,8 @@
 require 'json'
 
 @state_file = "var/try-keys.json"
+account_list = "var/aws-accounts.json"
+a = JSON.parse(IO.read account_list)
 
 def load_state
   begin
@@ -19,7 +21,8 @@ state["by_access_key"].each do |key, info|
   bad = info.has_key? "bad_key"
   found = info.has_key? "secret_access_key"
   user = info["user_arn"]
-  acc = info["account_aliases"]
+
+  acc = info["account_aliases"] || []
 
   desc = if found
            bad ? "killed" : "alive"
@@ -27,5 +30,12 @@ state["by_access_key"].each do |key, info|
            bad ? "bad" : "unknown"
          end
 
-  puts "#{key}\t#{desc}\t#{user || '-'}"
+  if user
+    account_id = user.split(/:/)[4]
+    account_info = a["accounts"].find {|acc| acc["account_id"] == account_id}
+  else
+    account_info = nil
+  end
+
+  puts "#{key}\t#{desc}\t#{user || '-'}\t#{account_info ? account_info["account_name"] : '-'}"
 end
