@@ -65,7 +65,7 @@ keys_to_try.each do |access_key, secret_key|
     next
   end
 
-  if key_info["secret_found"]
+  if key_info["secret_found"] and ENV["NO_RETRY_KEYS"]
     # No point looking any further...
     puts "access key #{access_key} is already marked as compromised - skipping"
     next
@@ -98,7 +98,7 @@ keys_to_try.each do |access_key, secret_key|
     end
 
     puts "found the secret for #{access_key} - authenticated as #{user_arn}"
-    key_info["secret_found"] = true
+    (key_info["secret_found"] ||= []) << Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
     key_info["secret_access_key"] = secret_key
     key_info["user_arn"] = user_arn
     key_info["account_aliases"] = account_aliases
@@ -106,7 +106,7 @@ keys_to_try.each do |access_key, secret_key|
 
   rescue Aws::IAM::Errors::InvalidClientTokenId
     puts "marking access key #{access_key} as a bad_key"
-    key_info["bad_key"] = true
+    (key_info["bad_key"] ||= []) << Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
     key_info.delete "tried_secret_access_keys"
 
   rescue Aws::IAM::Errors::SignatureDoesNotMatch

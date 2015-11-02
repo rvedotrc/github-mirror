@@ -47,6 +47,7 @@ Try the keys to see which ones are good:
 
 `  cat var/commits-and-secrets.json | jq -c '.[] | .old_permutations[], .new_permutations[]' | sort -u | jq --slurp . > ./var/keys-to-try.json`  
 `  ./bin/try-keys < ./var/keys-to-try.json`  
+`  ./bin/tried-keys-report`  
 
 If you have many AWS accounts, you might want to use `./bin/which-accounts` to
 cross-reference that data to your list of accounts.  (Requires list of
