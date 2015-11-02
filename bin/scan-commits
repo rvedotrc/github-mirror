@@ -64,6 +64,7 @@ class GitLogParser
       end
 
       if l.start_with? "diff "
+        yield commit, file, hunk unless hunk.empty?
         file = []
         hunk = []
         buffer = file
@@ -72,6 +73,7 @@ class GitLogParser
       end
 
       if l.start_with? "@@ "
+        yield commit, file, hunk unless hunk.empty?
         hunk = []
         buffer = hunk
         buffer << l
@@ -123,7 +125,7 @@ def scan_new_commits(old_refs, curr_refs, local_dir, git_dir)
       # raise({ commit: commit, file: file, hunk: hunk }.inspect) if commit.empty? or file.empty? or hunk.empty?
       commits << commit.first
       files << (commit.first + file.first) unless file.empty?
-      ++hunks unless hunk.empty?
+      hunks = hunks + 1 unless hunk.empty?
 
       if hunk.any? {|l| l.match /AKIA/}
         interesting_diffs << {
