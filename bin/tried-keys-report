@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'json'
+require 'digest'
 
 @state_file = "var/try-keys.json"
 account_list = "var/aws-accounts.json"
@@ -16,6 +17,8 @@ end
 
 state = load_state
 state["by_access_key"] ||= {}
+
+commits = JSON.parse(IO.read "var/commits-and-secrets.json")
 
 state["by_access_key"].each do |key, info|
   bad = info.has_key? "bad_key"
@@ -38,4 +41,34 @@ state["by_access_key"].each do |key, info|
   end
 
   puts "#{key}\t#{desc}\t#{user || '-'}\t#{account_info ? account_info["account_name"] : '-'}"
+
+  puts ""
+  puts "Commits containing this key:"
+
+  commits.each do |c|
+    this_key = %w[ old_permutations new_permutations ].any? do |pk|
+      c[pk].any? {|comb| comb.first == key }
+    end
+
+    if this_key
+      org = c["local_dir"]["github"]["organisation"]
+      repo = c["local_dir"]["github"]["repository"]
+      commit = c["commit"]["commit"]
+      path = c["file"]["filename"]
+      # url = "https://github.com/#{org}/#{repo}/blob/#{commit}/#{path}"
+      file_md5 = Digest::MD5.hexdigest(path)
+      url = "https://github.com/#{org}/#{repo}/commit/#{commit}\#diff-#{file_md5}"
+      puts c["commit"]["time"]["iso"] + " " + url
+
+  #     puts JSON.pretty_generate({
+  #       repository: c["local_dir"]["github"],
+  #       commit: c["commit"]["commit"],
+  #       time: c["commit"]["time"]["iso"],
+  #       filename: c["file"]["filename"],
+  #       url: url,
+  #     })
+    end
+  end
+  puts ""
+
 end
