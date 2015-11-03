@@ -56,6 +56,13 @@ end
 state = load_state
 state["by_access_key"] ||= {}
 
+state["by_access_key"].each do |k,i|
+  if i["secret_access_key"]
+    keys_to_try << [ k, i["secret_access_key"] ]
+  end
+end
+keys_to_try.uniq!
+
 keys_to_try.each do |access_key, secret_key|
   key_info = (state["by_access_key"][access_key] ||= {})
 
