@@ -20,6 +20,8 @@ state["by_access_key"] ||= {}
 
 commits = JSON.parse(IO.read "var/commits-and-secrets.json")
 
+repos = JSON.parse(IO.read "var/list-repos.json")
+
 state["by_access_key"].each do |key, info|
   bad = info.has_key? "bad_key"
   found = info.has_key? "secret_access_key"
@@ -40,7 +42,10 @@ state["by_access_key"].each do |key, info|
     account_info = nil
   end
 
-  puts "#{key}\t#{desc}\t#{user || '-'}\t#{account_info ? account_info["account_name"] : '-'}"
+  live_date = (info["secret_found"] || []).first || "-"
+  dead_date = (info["bad_key"] || []).first || "-"
+
+  puts "#{key}\t#{desc}\t#{live_date}\t#{dead_date}\t#{user || '-'}\t#{account_info ? account_info["account_name"] : '-'}"
 
   puts ""
   puts "Commits containing this key:"
@@ -58,7 +63,17 @@ state["by_access_key"].each do |key, info|
       # url = "https://github.com/#{org}/#{repo}/blob/#{commit}/#{path}"
       file_md5 = Digest::MD5.hexdigest(path)
       url = "https://github.com/#{org}/#{repo}/commit/#{commit}\#diff-#{file_md5}"
-      puts c["commit"]["time"]["iso"] + " " + url
+
+      repo_metadata = repos.find {|r| r["git_url"] == "git://github.com/#{org}/#{repo}.git"}
+      privacy = if !repo_metadata
+                  "unknown"
+                elsif repo_metadata["is_private"]
+                  "private"
+                else
+                  "public"
+                end
+
+      puts privacy + " " + c["commit"]["time"]["iso"] + " " + url
 
   #     puts JSON.pretty_generate({
   #       repository: c["local_dir"]["github"],
