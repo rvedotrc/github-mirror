@@ -5,6 +5,7 @@ require 'shellwords'
 require 'set'
 
 def read_git_refs(git_dir)
+  # Could / should use git for-each-ref --format "..."
   lines = `cd #{Shellwords.shellescape git_dir} && git for-each-ref`.lines
   lines.reduce({}) do |h, l|
     m = l.match /^(?<commit>\w{40}) (?<type>\S+)\s+(?<ref>.*)$/
