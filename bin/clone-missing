@@ -50,6 +50,16 @@ def do_fetch(dir)
 
   puts "git fetch"
   system "git", "fetch"
+  unless $?.success?
+    # This can happen when local (or remote) has a ref like "foo/bar", but
+    # remote (or local) has a ref like "foo".  Because of the way that git
+    # stores refs in the filesystem, it then has trouble switching "foo" from
+    # directory to a file, or vice versa.
+    puts "Trying git remote prune origin"
+    system "git", "remote", "prune", "origin"
+    puts "git fetch (again)"
+    system "git", "fetch"
+  end
   $?.success? or raise "git fetch failed"
 
   Dir.chdir @pwd
