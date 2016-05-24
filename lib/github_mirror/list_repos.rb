@@ -14,13 +14,13 @@ module GithubMirror
     end
 
     def list
-      # github.repos.list.each do |r|
+      # @github.repos.list.each do |r|
       #   puts "#{r.pushed_at} #{r.git_url}"
       # end
 
       data = []
 
-      github.repos.list.each_page do |page|
+      @github.repos.list.each_page do |page|
         page.each do |r|
           $stderr.puts "#{r.pushed_at} #{r.private} #{r.git_url}"
           data << {
