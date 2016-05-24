@@ -1,3 +1,10 @@
+GIT
+  remote: https://github.com/rvedotrc/rosarium.git
+  revision: 968feed0c96376dd33f78b92e164ed82a3a24a70
+  tag: v0.1.4
+  specs:
+    rosarium (0.1.4)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -45,3 +52,7 @@ PLATFORMS
 DEPENDENCIES
   aws-sdk (~> 2.1)!
   github_api (~> 0.12.3)!
+  rosarium (~> 0.1.4)!
+
+BUNDLED WITH
+   1.11.2
