@@ -8,7 +8,7 @@ module GithubMirror
   class CloneMissing
 
     def initialize
-      @pwd = Dir.pwd
+      @dry_run = false
     end
 
     def do_clone(url, dir)
@@ -24,46 +24,27 @@ module GithubMirror
       # So we can access private repositories
       url = url.sub "git:", "ssh:"
 
-      if Dir.exist? legacy_dir
-        puts "git clone --mirror --reference #{legacy_dir} #{url} #{mirror_tmp}"
-        system "git", "clone", "--mirror", "--reference", legacy_dir, url, mirror_tmp
-        $?.success? or raise "git clone failed"
-
-        system "cd #{Shellwords.shellescape mirror_tmp} && git repack -a -d"
-        $?.success? or raise "git repack failed"
-
-        FileUtils.rm_rf "#{mirror_tmp}/objects/info/alternates"
-        FileUtils.rm_rf legacy_dir
-
-        system "cd #{Shellwords.shellescape mirror_tmp} && git fsck --full --strict"
-        $?.success? or raise "git fsck failed"
-      else
-        puts "git clone --mirror #{url} #{mirror_tmp}"
-        system "git", "clone", "--mirror", url, mirror_tmp
-        $?.success? or raise "git clone failed"
-      end
+      puts "git clone --mirror #{url} #{mirror_tmp}"
+      system "git", "clone", "--mirror", url, mirror_tmp
+      $?.success? or raise "git clone failed"
 
       File.rename mirror_tmp, mirror_dir
     end
 
     def do_fetch(dir)
-      Dir.chdir "#{dir}/mirror"
-
       puts "git fetch"
-      system "git", "fetch"
+      system "with-cwd", "#{dir}/mirror", "git", "fetch"
       unless $?.success?
         # This can happen when local (or remote) has a ref like "foo/bar", but
         # remote (or local) has a ref like "foo".  Because of the way that git
         # stores refs in the filesystem, it then has trouble switching "foo" from
         # directory to a file, or vice versa.
         puts "Trying git remote prune origin"
-        system "git", "remote", "prune", "origin"
+        system "with-cwd", "#{dir}/mirror", "git", "remote", "prune", "origin"
         puts "git fetch (again)"
-        system "git", "fetch"
+        system "with-cwd", "#{dir}/mirror", "git", "fetch"
       end
       $?.success? or raise "git fetch failed"
-
-      Dir.chdir @pwd
     end
 
     def write_pushed(pushed_at, dir)
@@ -82,11 +63,35 @@ module GithubMirror
       IO.write("#{dir}/mirror-changed", "")
     end
 
-    def run
+    def run_one(url, pushed_at)
+      local_dir = url.gsub("git://github.com/", "var/github/").gsub(/\.git$/, "")
+
+      if Dir.exist? local_dir+"/mirror"
+        last_pushed_at = read_pushed local_dir
+        if last_pushed_at != pushed_at
+          puts "Need to fetch #{url}"
+          unless @dry_run
+            do_fetch local_dir
+            write_pushed pushed_at, local_dir
+            write_changed local_dir
+          end
+        else
+          # puts "No change for #{url}"
+        end
+      else
+        puts "Need to clone #{url}"
+        unless @dry_run
+          do_clone url, local_dir
+          write_pushed pushed_at, local_dir
+          write_changed local_dir
+        end
+      end
+    end
+
+    def run(data = nil)
       config = JSON.parse(IO.read "etc/github-mirror.json")
 
-      data = JSON.parse(IO.read "var/list-repos.json")
-      dry_run = false
+      data ||= JSON.parse(IO.read "var/list-repos.json")
 
       ignored_orgs = Set.new
 
@@ -100,31 +105,11 @@ module GithubMirror
           next
         end
 
-        local_dir = url.gsub("git://github.com/", "var/github/").gsub(/\.git$/, "")
-
-        Dir.chdir @pwd
-
-        if Dir.exist? local_dir+"/mirror"
-          last_pushed_at = read_pushed local_dir
-          if last_pushed_at != pushed_at
-            puts "Need to fetch #{url}"
-            unless dry_run
-              do_fetch local_dir
-              write_pushed pushed_at, local_dir
-              write_changed local_dir
-            end
-          else
-            # puts "No change for #{url}"
-          end
+        if block_given?
+          yield url, pushed_at
         else
-          puts "Need to clone #{url}"
-          unless dry_run
-            do_clone url, local_dir
-            write_pushed pushed_at, local_dir
-            write_changed local_dir
-          end
+          run_one url, pushed_at
         end
-
       end
 
       unless ignored_orgs.empty?

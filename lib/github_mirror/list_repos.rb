@@ -34,6 +34,21 @@ module GithubMirror
       data
     end
 
+    def load_if_fresh(max_age)
+      begin
+        File.open "var/list-repos.json" do |f|
+          age = Time.now - f.stat.mtime
+          if age > max_age
+            nil
+          else
+            JSON.parse(f.read)
+          end
+        end
+      rescue Errno::ENOENT
+        nil
+      end
+    end
+
     def save(data)
       file = "var/list-repos.json"
       tmp = file + ".tmp"

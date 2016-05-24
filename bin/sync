@@ -1,0 +1,33 @@
+#!/usr/bin/env ruby
+
+$: << "lib"
+require 'rosarium'
+require 'github_mirror'
+
+def list_repositories
+  Rosarium::Promise.execute do
+    lister = GithubMirror::ListRepositories.new
+
+    data = lister.load_if_fresh(3600)
+
+    if !data
+      data = lister.list
+      lister.save data
+    end
+
+    data
+  end
+end
+
+v = list_repositories
+  .then do |data|
+    cloner = GithubMirror::CloneMissing.new
+    cloner.run(data) do |url, pushed_at|
+      puts "Should update #{pushed_at} #{url}"
+    end
+  end
+  .value!
+
+puts "Promise returned #{v.inspect}"
+
+# eof sync
