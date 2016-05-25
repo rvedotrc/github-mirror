@@ -38,8 +38,18 @@ def clone_repository(cloner, url, pushed_at)
   puts "Should update #{pushed_at} #{url}"
 end
 
+def scan_commits
+  scanner = GithubMirror::ScanCommits.new
+  Rosarium::Promise.all(
+    scanner.list_jobs.map do |changed_file|
+      Rosarium::Promise.execute { scanner.scan_one changed_file }
+    end
+  )
+end
+
 v = list_repositories
   .then {|listing| clone_repositories listing}
+  .then { scan_commits }
   .value!
 
 puts "Promise returned #{v.inspect}"
