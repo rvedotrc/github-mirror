@@ -8,24 +8,38 @@ def list_repositories
   Rosarium::Promise.execute do
     lister = GithubMirror::ListRepositories.new
 
-    data = lister.load_if_fresh(3600)
+    listing = lister.load_if_fresh(3600)
 
-    if !data
-      data = lister.list
-      lister.save data
+    if !listing
+      listing = lister.list
+      lister.save listing
     end
 
-    data
+    listing
   end
 end
 
-v = list_repositories
-  .then do |data|
-    cloner = GithubMirror::CloneMissing.new
-    cloner.run(data) do |url, pushed_at|
-      puts "Should update #{pushed_at} #{url}"
+def clone_repositories(listing)
+  puts "listing=#{listing.inspect}"
+  cloner = GithubMirror::CloneMissing.new(dry_run: false)
+
+  promises = []
+  cloner.run(listing) do |url, pushed_at|
+    promises << Rosarium::Promise.execute do
+      cloner.run_one(url, pushed_at)
+      nil
     end
   end
+
+  Rosarium::Promise.all(promises)
+end
+
+def clone_repository(cloner, url, pushed_at)
+  puts "Should update #{pushed_at} #{url}"
+end
+
+v = list_repositories
+  .then {|listing| clone_repositories listing}
   .value!
 
 puts "Promise returned #{v.inspect}"
