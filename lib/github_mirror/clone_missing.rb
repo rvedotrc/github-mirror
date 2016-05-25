@@ -7,8 +7,8 @@ module GithubMirror
 
   class CloneMissing
 
-    def initialize
-      @dry_run = false
+    def initialize(options = {})
+      @dry_run = !!options[:dry_run]
     end
 
     def do_clone(url, dir)
