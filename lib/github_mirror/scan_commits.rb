@@ -175,24 +175,32 @@ module GithubMirror
       File.rename tmp_file, file
     end
 
+    def scan_one(changed_file)
+      local_dir = File.dirname changed_file
+      git_dir = "#{local_dir}/mirror"
+      puts local_dir
+
+      curr_refs = read_git_refs git_dir
+      old_refs = read_old_refs local_dir
+
+      interesting_diffs = scan_new_commits(old_refs, curr_refs, local_dir, git_dir)
+
+      unless interesting_diffs.empty?
+        puts "  #{interesting_diffs.length} interesting new diffs in #{git_dir}"
+      end
+
+      save_interesting(interesting_diffs, local_dir)
+      save_new_refs(curr_refs, local_dir)
+      File.unlink changed_file
+    end
+
+    def list_jobs
+      Dir.glob("var/github/*/*/mirror-changed").sort
+    end
+
     def run
-      Dir.glob("var/github/*/*/mirror-changed").sort.each do |changed_file|
-        local_dir = File.dirname changed_file
-        git_dir = "#{local_dir}/mirror"
-        puts local_dir
-
-        curr_refs = read_git_refs git_dir
-        old_refs = read_old_refs local_dir
-
-        interesting_diffs = scan_new_commits(old_refs, curr_refs, local_dir, git_dir)
-
-        unless interesting_diffs.empty?
-          puts "  #{interesting_diffs.length} interesting new diffs in #{git_dir}"
-        end
-
-        save_interesting(interesting_diffs, local_dir)
-        save_new_refs(curr_refs, local_dir)
-        File.unlink changed_file
+      list_jobs.each do |changed_file|
+        scan_one changed_file
       end
     end
 
