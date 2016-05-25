@@ -96,8 +96,8 @@ module GithubMirror
       ignored_orgs = Set.new
 
       data.each do |r|
-        url = r["git_url"]
-        pushed_at = r["pushed_at"]
+        url = r["git_url"] || r[:git_url]
+        pushed_at = r["pushed_at"] || r[:pushed_at]
         org = url.split('/')[3]
 
         unless config["github"]["allow_orgs"].nil? or config["github"]["allow_orgs"].include? org
