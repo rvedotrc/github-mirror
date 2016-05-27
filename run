@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -eux
+
+cd "$( dirname "$0" )"
+
+./bin/sync
+./bin/analyse-commits
+./bin/activity-log
+cat var/commits-and-secrets.json | jq -c '.[] | .old_permutations[], .new_permutations[]' | sort -u | jq --slurp . > var/new-pairs.json
+./recheck-keys

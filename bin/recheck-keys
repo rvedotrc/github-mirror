@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -eux
+
+./bin/try-keys < var/new-pairs.json
+echo '[]' > var/new-pairs.json
+
+if [ -x ./recheck-keys.local ] ; then
+    ./recheck-keys.local
+fi

@@ -25,29 +25,10 @@ Create `./etc/github-mirror.json` like this:
 Running (first time, or thereafter)
 -----------------------------------
 
-Find what repositories there are, and when each one was last pushed to:
-
-`  ./bin/list-repos`  
-
-Locally fetch all repositories and commits that we don't have yet:
-
-`  ./bin/clone-missing`  
-
-Scan all the commits we haven't scanned yet to find those which potentially
-contain secrets:
-
-`  ./bin/scan-commits`  
-
-Analyse all the interesting commits found so far (note: not incremental):
-
-`  ./bin/analyse-commits`  
-`  ./bin/activity-log`  
-
-Try the keys to see which ones are good:
-
-`  cat var/commits-and-secrets.json | jq -c '.[] | .old_permutations[], .new_permutations[]' | sort -u | jq --slurp . > ./var/keys-to-try.json`  
-`  ./bin/try-keys < ./var/keys-to-try.json`  
-`  ./bin/tried-keys-report`  
+```
+    ./run
+    ./bin/tried-keys-report
+```
 
 If you have many AWS accounts, you might want to use `./bin/which-accounts` to
 cross-reference that data to your list of accounts.  (Requires list of
