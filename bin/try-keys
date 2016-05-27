@@ -75,19 +75,19 @@ end
 def process_entry(access_key, secret_key, key_info)
   if key_info["bad_key"]
     # Already known to be bad; we assume it will never become good
-    puts "access key #{access_key} is already marked as a bad_key - skipping"
+    # puts "#{access_key} : already marked as a bad_key - skipping"
     return
   end
 
   if key_info["secret_found"] and ENV["NO_RETRY_KEYS"]
     # No point looking any further...
-    puts "access key #{access_key} is already marked as compromised - skipping"
+    puts "#{access_key} : already marked as compromised and $NO_RETRY_KEYS is set - skipping"
     return
   end
 
   if ((key_info["tried_secret_access_keys"] || []).include? secret_key)
     # Already tried this secret
-    puts "already tried this secret for access key #{access_key} - skipping"
+    puts "#{access_key} : already tried this secret (and found it was wrong) - skipping"
     return
   end
 
@@ -96,10 +96,12 @@ def process_entry(access_key, secret_key, key_info)
   iam = Aws::IAM::Client.new(access_key_id: access_key, secret_access_key: secret_key)
 
   if result.kind_of? Hash
+
     user_arn = result[:user_arn]
     account_aliases = result[:account_aliases]
 
-    puts "found the secret for #{access_key} - authenticated as #{user_arn}"
+    puts "#{access_key} : secret found, authenticated as #{user_arn}"
+
     (key_info["secret_found"] ||= []) << Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
     key_info["secret_access_key"] = secret_key
     key_info["user_arn"] = user_arn
@@ -107,12 +109,16 @@ def process_entry(access_key, secret_key, key_info)
     key_info.delete "tried_secret_access_keys"
 
   elsif result == :bad_access_key_id
-    puts "marking access key #{access_key} as a bad_key"
+
+    puts "#{access_key} : invalid access key, marking as bad"
+
     (key_info["bad_key"] ||= []) << Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
     key_info.delete "tried_secret_access_keys"
 
   elsif result == :wrong_secret_access_key
-    puts "marking access key #{access_key} with a wrong secret key"
+
+    puts "#{access_key} : access key is valid, but this is the wrong secret"
+
     (key_info["tried_secret_access_keys"] ||= []) << secret_key
 
   else
