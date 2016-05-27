@@ -2,6 +2,7 @@
 
 require 'aws-sdk'
 require 'json'
+require 'rosarium'
 
 # ASSUMPTION: if we have a key pair to test, and we haven't found its secret
 # key already, then we will disregard the possibility that the access key
@@ -132,9 +133,13 @@ state["by_access_key"] ||= {}
 
 keys_to_try = (JSON.parse($stdin.read) + keys_to_recheck(state)).uniq
 
-keys_to_try.each do |access_key, secret_key|
+promises = keys_to_try.map do |access_key, secret_key|
   key_info = (state["by_access_key"][access_key] ||= {})
-  process_entry access_key, secret_key, key_info
+  Rosarium::Promise.execute do
+    process_entry access_key, secret_key, key_info
+  end
 end
+
+Rosarium::Promise.all(promises).value!
 
 save_state state
