@@ -8,4 +8,4 @@ cd "$( dirname "$0" )"
 ./bin/analyse-commits
 ./bin/activity-log
 cat var/commits-and-secrets.json | jq -c '.[] | .old_permutations[], .new_permutations[]' | sort -u | jq --slurp . > var/new-pairs.json
-./recheck-keys
+./bin/recheck-keys
