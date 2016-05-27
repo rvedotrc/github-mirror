@@ -103,6 +103,8 @@ def process_entry(access_key, secret_key, key_info)
     puts "#{access_key} : secret found, authenticated as #{user_arn}"
 
     (key_info["secret_found"] ||= []) << Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
+    key_info["secret_found"] = [ key_info["secret_found"].first, key_info["secret_found"].last ]
+
     key_info["secret_access_key"] = secret_key
     key_info["user_arn"] = user_arn
     key_info["account_aliases"] = account_aliases
