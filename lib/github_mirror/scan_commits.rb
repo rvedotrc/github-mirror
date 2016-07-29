@@ -140,7 +140,11 @@ module GithubMirror
         end
 
         Process.waitpid pid
-        $?.success? or raise "git log failed"
+        # Can get stuck here with "bad object", if one of the
+        # previously-scanned commits (i.e. in old_refs) no longer exists.
+        # Solution for now: manually remove the offending commit hash from
+        # scanned-refs.json and re-run.
+        $?.success? or raise "git log failed (in #{git_dir})"
       end
 
       puts "  scanned #{commits.size} commits, #{files.size} files, #{hunks} hunks"
