@@ -52,6 +52,4 @@ v = list_repositories
   .then { scan_commits }
   .value!
 
-puts "Promise returned #{v.inspect}"
-
 # eof sync
