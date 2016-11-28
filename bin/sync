@@ -34,10 +34,6 @@ def clone_repositories(listing)
   Rosarium::Promise.all(promises)
 end
 
-def clone_repository(cloner, url, pushed_at)
-  puts "Should update #{pushed_at} #{url}"
-end
-
 def scan_commits
   scanner = GithubMirror::ScanCommits.new
   Rosarium::Promise.all(
