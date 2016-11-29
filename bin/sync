@@ -7,14 +7,8 @@ require 'github_mirror'
 def list_repositories
   Rosarium::Promise.execute do
     lister = GithubMirror::ListRepositories.new
-
-    listing = lister.load_if_fresh(3600)
-
-    if !listing
-      listing = lister.list
-      lister.save listing
-    end
-
+    listing = []
+    lister.each {|r| listing << r}
     listing
   end
 end

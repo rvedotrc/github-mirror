@@ -1,9 +1,9 @@
 GIT
   remote: https://github.com/rvedotrc/rosarium.git
-  revision: 968feed0c96376dd33f78b92e164ed82a3a24a70
-  tag: v0.1.4
+  revision: 4a8097c61e6d6a8d2d451e47cc689eafd4a8a598
+  tag: v0.1.5
   specs:
-    rosarium (0.1.4)
+    rosarium (0.1.5)
 
 GEM
   remote: https://rubygems.org/
@@ -17,6 +17,7 @@ GEM
       aws-sdk-core (= 2.1.12)
     descendants_tracker (0.0.4)
       thread_safe (~> 0.3, >= 0.3.1)
+    diff-lcs (1.2.5)
     faraday (0.9.1)
       multipart-post (>= 1.2, < 3)
     github_api (0.12.4)
@@ -44,6 +45,15 @@ GEM
       multi_xml (~> 0.5)
       rack (~> 1.2)
     rack (1.6.4)
+    rspec-core (3.5.4)
+      rspec-support (~> 3.5.0)
+    rspec-expectations (3.5.0)
+      diff-lcs (>= 1.2.0, < 2.0)
+      rspec-support (~> 3.5.0)
+    rspec-mocks (3.5.0)
+      diff-lcs (>= 1.2.0, < 2.0)
+      rspec-support (~> 3.5.0)
+    rspec-support (3.5.0)
     thread_safe (0.3.5)
 
 PLATFORMS
@@ -52,7 +62,10 @@ PLATFORMS
 DEPENDENCIES
   aws-sdk (~> 2.1)!
   github_api (~> 0.12.3)!
-  rosarium (~> 0.1.4)!
+  rosarium (~> 0.1.5)!
+  rspec-core!
+  rspec-expectations!
+  rspec-mocks!
 
 BUNDLED WITH
-   1.11.2
+   1.13.2
