@@ -25,6 +25,7 @@ module GithubMirror
     def each_page_uncached(block)
       page = github_client.repos.list
       data = []
+
       loop do
         hashes = page.map do |r|
           {
@@ -40,6 +41,7 @@ module GithubMirror
         page.has_next_page? or break
         page = page.next_page
       end
+
       json_cache.write data
     end
 
