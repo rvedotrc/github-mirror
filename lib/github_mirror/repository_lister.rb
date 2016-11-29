@@ -13,6 +13,8 @@ module GithubMirror
     end
 
     def each_page
+      return enum_for(:each_page) unless block_given?
+
       if r = json_cache.read
         yield r
       else
