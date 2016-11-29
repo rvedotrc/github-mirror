@@ -21,8 +21,17 @@ module GithubMirror
         page = github_client.repos.list
         data = []
         loop do
-          yield page
-          data.concat page.to_a
+          hashes = page.map do |r|
+            {
+              "git_url" => r.git_url,
+              "is_private" => r.private,
+              "pushed_at" => r.pushed_at,
+            }
+          end
+
+          yield hashes
+          data.concat hashes.to_a
+
           page.has_next_page? or break
           page = page.next_page
         end
