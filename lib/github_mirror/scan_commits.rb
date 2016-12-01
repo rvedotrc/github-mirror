@@ -6,92 +6,11 @@ module GithubMirror
 
   class ScanCommits
 
-    def read_git_refs(git_dir)
-      # Could / should use git for-each-ref --format "..."
-      lines = `cd #{Shellwords.shellescape git_dir} && git for-each-ref`.lines
-      lines.reduce({}) do |h, l|
-        m = l.match /^(?<commit>\w{40}) (?<type>\S+)\s+(?<ref>.*)$/
-        m or raise "Failed to parse for-each-ref line #{l.inspect} in #{git_dir.inspect}"
-
-        entry = {
-          "commit" => m["commit"],
-          "type" => m["type"],
-          "ref" => m["ref"],
-        }
-
-        h[ entry["ref"] ] = entry
-        h
-      end
-    end
-
     def read_old_refs(dir)
       begin
         JSON.parse(IO.read "#{dir}/scanned-refs.json")
       rescue Errno::ENOENT
         {}
-      end
-    end
-
-    class GitLogParser
-      def initialize(io)
-        @io = io
-      end
-
-      def parse
-        commit = []
-        file = []
-        hunk = []
-        buffer = nil
-
-        # Not correct (e.g. a perfectly valid "£" becomes 0xC2 0xA3 becomes \uFFFD uFFFD)
-        # but does at least allow the program to run without crashing.  Only
-        # acceptable because all the data we care about is ASCII.
-        converter = Encoding::Converter.new("ASCII-8BIT", "UTF-8", invalid: :replace, undef: :replace)
-
-        @io.each_line do |l8bit|
-          l = converter.convert(l8bit)
-          # puts ">> #{l}"
-
-          if l.start_with? "commit "
-            # flush whatever we have
-            unless commit.empty? and file.empty? and hunk.empty?
-              yield commit, file, hunk
-            end
-
-            commit = []
-            file = []
-            hunk = []
-            buffer = commit
-            buffer << l
-            next
-          end
-
-          if l.start_with? "diff "
-            yield commit, file, hunk unless hunk.empty?
-            file = []
-            hunk = []
-            buffer = file
-            buffer << l
-            next
-          end
-
-          if l.start_with? "@@ "
-            yield commit, file, hunk unless hunk.empty?
-            hunk = []
-            buffer = hunk
-            buffer << l
-            next
-          end
-
-          raise "git-log parse error" if buffer.nil?
-          buffer << l
-        end
-
-        # flush whatever we have
-        unless commit.empty? and file.empty? and hunk.empty?
-          yield commit, file, hunk
-        end
-
       end
     end
 
@@ -102,6 +21,10 @@ module GithubMirror
       new_commits = curr_commits - old_commits
       old_commits = old_commits - curr_commits
       return [] if new_commits.empty?
+
+      # --reverse - show in chronological order
+      # -p -U10 - patch in unified diff format, 10 lines of context
+      # --cc - suppress uninteresting merges (where one of two parents is picked)
 
       # How many lines apart might the access + secret key be from each other?
       # Let's try 10.
@@ -184,7 +107,7 @@ module GithubMirror
       git_dir = "#{local_dir}/mirror"
       puts local_dir
 
-      curr_refs = read_git_refs git_dir
+      curr_refs = GitRefReader.read_git_refs git_dir
       old_refs = read_old_refs local_dir
 
       interesting_diffs = scan_new_commits(old_refs, curr_refs, local_dir, git_dir)

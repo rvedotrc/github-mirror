@@ -18,9 +18,9 @@ def clone_repositories(listing)
   cloner = GithubMirror::CloneMissing.new(dry_run: false)
 
   promises = []
-  cloner.run(listing) do |url, pushed_at|
+  cloner.run(listing) do |cloner, url, pushed_at|
     promises << Rosarium::Promise.execute do
-      cloner.run_one(url, pushed_at)
+      cloner.run(url, pushed_at)
       nil
     end
   end

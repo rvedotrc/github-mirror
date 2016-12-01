@@ -5,13 +5,18 @@ require 'set'
 
 module GithubMirror
 
-  class CloneMissing
+  class CloneOne
 
-    def initialize(options = {})
-      @dry_run = !!options[:dry_run]
+    attr_reader :dir, :dry_run
+
+    def initialize(dir, dry_run)
+      @dir = dir
+      @dry_run = dry_run
     end
 
-    def do_clone(url, dir)
+    private
+
+    def do_clone(url)
       FileUtils.mkdir_p dir
 
       mirror_dir = "#{dir}/mirror"
@@ -31,7 +36,7 @@ module GithubMirror
       File.rename mirror_tmp, mirror_dir
     end
 
-    def do_fetch(dir)
+    def do_fetch
       puts "git fetch"
       system "with-cwd", "#{dir}/mirror", "git", "fetch"
       unless $?.success?
@@ -47,11 +52,11 @@ module GithubMirror
       $?.success? or raise "git fetch failed"
     end
 
-    def write_pushed(pushed_at, dir)
+    def write_pushed(pushed_at)
       IO.write("#{dir}/pushed_at", pushed_at)
     end
 
-    def read_pushed(dir)
+    def read_pushed
       begin
         IO.read("#{dir}/pushed_at")
       rescue Errno::ENOENT
@@ -59,21 +64,25 @@ module GithubMirror
       end
     end
 
-    def write_changed(dir)
+    def write_changed
       IO.write("#{dir}/mirror-changed", "")
     end
 
-    def run_one(url, pushed_at)
-      local_dir = url.gsub("git://github.com/", "var/github/").gsub(/\.git$/, "")
+    def is_changed?
+      File.exist?("#{dir}/mirror-changed")
+    end
 
-      if Dir.exist? local_dir+"/mirror"
-        last_pushed_at = read_pushed local_dir
+    public
+
+    def run(url, pushed_at)
+      if Dir.exist? dir+"/mirror"
+        last_pushed_at = read_pushed
         if last_pushed_at != pushed_at
           puts "Need to fetch #{url}"
           unless @dry_run
-            do_fetch local_dir
-            write_pushed pushed_at, local_dir
-            write_changed local_dir
+            do_fetch
+            write_pushed pushed_at
+            write_changed
           end
         else
           # puts "No change for #{url}"
@@ -81,11 +90,23 @@ module GithubMirror
       else
         puts "Need to clone #{url}"
         unless @dry_run
-          do_clone url, local_dir
-          write_pushed pushed_at, local_dir
-          write_changed local_dir
+          do_clone url
+          write_pushed pushed_at
+          write_changed
         end
       end
+
+      is_changed?
+    end
+
+  end
+
+  class CloneMissing
+
+    attr_reader :dry_run
+
+    def initialize(dry_run)
+      @dry_run = dry_run
     end
 
     def run(data)
@@ -103,10 +124,12 @@ module GithubMirror
           next
         end
 
+        local_dir = url.gsub("git://github.com/", "var/github/").gsub(/\.git$/, "")
+        cloner = CloneOne.new(local_dir, dry_run)
         if block_given?
-          yield url, pushed_at
+          yield cloner, url, pushed_at
         else
-          run_one url, pushed_at
+          cloner.run(url, pushed_at)
         end
       end
 

@@ -22,6 +22,8 @@ module GithubMirror
       end
     end
 
+    private
+
     def each_page_uncached(block)
       page = github_client.repos.list
       data = []
