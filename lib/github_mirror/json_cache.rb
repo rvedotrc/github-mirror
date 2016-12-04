@@ -12,7 +12,7 @@ module GithubMirror
     def read
       begin
         File.open(filename) do |f|
-          if f.mtime >= Time.now - max_age
+          if max_age.nil? or f.mtime >= Time.now - max_age
             JSON.parse(f.read)
           end
         end

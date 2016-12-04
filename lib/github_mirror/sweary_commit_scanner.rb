@@ -8,7 +8,7 @@ module GithubMirror
 
     def initialize(local_dir)
       @local_dir = local_dir
-      @json_cache = JSONCache.new("#{local_dir}/sweary-commits.json", 1E9)
+      @json_cache = JSONCache.new("#{local_dir}/sweary-commits.json", nil)
     end
 
     def run

@@ -50,6 +50,17 @@ describe GithubMirror::JSONCache do
     c.write(data)
   end
 
+  it "should always treat as fresh if age is nil" do
+    data = { "some" => "data" }
+    file = "t.json"
+    c = GithubMirror::JSONCache.new(file, nil)
+    f = double "filehandle"
+    expect(File).to receive(:open).with(file).and_yield(f)
+    expect(f).not_to receive(:mtime)
+    expect(f).to receive(:read).and_return(JSON.generate(data))
+    expect(c.read).to eq(data)
+  end
+
   it "provides JsonCache as an alias" do
     expect(GithubMirror::JsonCache).to eq(GithubMirror::JSONCache)
   end
