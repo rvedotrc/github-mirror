@@ -50,4 +50,8 @@ describe GithubMirror::JSONCache do
     c.write(data)
   end
 
+  it "provides JsonCache as an alias" do
+    expect(GithubMirror::JsonCache).to eq(GithubMirror::JSONCache)
+  end
+
 end

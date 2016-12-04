@@ -57,6 +57,6 @@ lister = GithubMirror::RepositoryLister.new(github_client, json_cache)
 # block pattern instead.
 r = Rosarium::Promise.all(lister.each_page.map {|page| do_page page}).value!.flatten
 
-puts JSON.generate(r)
+GithubMirror::JsonCache.new("var/fast-run.json", 0).write(r)
 
 # eof fast-run
