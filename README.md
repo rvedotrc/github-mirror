@@ -40,8 +40,32 @@ TODO
  * Look for other kinds of secrets, e.g. passwords, API keys, RSA private keys
  * More automation; report more about where each secret was found.
 
-Files
------
+Processing
+----------
+
+Config is in `etc/github-mirror.json`
+
+Starts by reading a list of repositories, which is cached in
+`var/list-repos.json`.
+
+For each repository in parallel:
+
+ * Cloning:
+ * * Skipped if `pushed_at` file matches `last_pushed_at` from the repo listing
+ * * After clone/pull, `mirror-changed` is touched
+
+ * Scanning new commits:
+ * * Only done if `mirror-changed` is present
+ * * list refs, and find previously-listed refs (`scanned-refs.json`)
+ * * scan new commits:
+ * * * only care about commits containing potential key material
+ * * * output: commit (at least the hash), file (path), potential key material
+ * * * added to `commits-and-secrets.json` (list of commits, and list of all potential key material)
+ * * * touch `secrets-changed` if anything changed
+ * * write refs to `scanned-refs.json`
+ * * Unlink `mirror-changed`
+
+ * Assemble secrets:
 
 A note on relevant files.
 

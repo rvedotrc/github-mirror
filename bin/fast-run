@@ -12,25 +12,31 @@ def do_page(page)
   Rosarium::Promise.all(page.map {|repo| do_repo repo})
 end
 
+def repo_allowed?(repo, org)
+  @config["github"]["allow_orgs"].nil? or @config["github"]["allow_orgs"].include? org
+end
+
 def do_repo(repo)
-  Rosarium::Promise.execute do
-    # puts "repo=#{repo.inspect}"
-    url = repo["git_url"]
-    pushed_at = repo["pushed_at"]
-    org = url.split('/')[3]
+  # puts "repo=#{repo.inspect}"
+  url = repo["git_url"]
+  pushed_at = repo["pushed_at"]
+  org = url.split('/')[3]
 
-    unless @config["github"]["allow_orgs"].nil? or @config["github"]["allow_orgs"].include? org
-      # ignored_orgs << org
-      nil
-    else
-      local_dir = url.gsub("git://github.com/", "var/github/").gsub(/\.git$/, "")
-      cloner = GithubMirror::CloneOne.new(local_dir, false)
-      if cloner.run(url, pushed_at)
-        puts "repo #{url} has new commits"
-        # TODO scan all commits not already scanned
+  unless repo_allowed?(repo, org)
+    return Rosarium::Promise.resolve nil
+  end
 
-      end
-    end
+  local_dir = url.gsub("git://github.com/", "var/github/").gsub(/\.git$/, "")
+
+  cloner = Rosarium::Promise.execute do
+    cloner = GithubMirror::CloneOne.new(local_dir, false)
+    cloner.run(url, pushed_at)
+  end
+
+  cloner.then do
+    GithubMirror::SwearyCommitScanner.new(local_dir).run
+  end.catch do |e|
+    puts "FAILED to update #{local_dir} for SwearyCommitScanner: #{e}"
   end
 end
 
@@ -38,7 +44,8 @@ github_client = GithubMirror::GithubClient.get("etc/github-mirror.json")
 json_cache = GithubMirror::JSONCache.new("var/list-repos.json", 3600*10)
 lister = GithubMirror::RepositoryLister.new(github_client, json_cache)
 # The iterator pattern doesn't play at all well with promises ("FiberError:
-# fiber called across threads"), so use the block pattern instead.
+# fiber called across threads" - i.e. the iterators are mutable), so use the
+# block pattern instead.
 Rosarium::Promise.all(lister.each_page.map {|page| do_page page}).value!
 
 # eof fast-run

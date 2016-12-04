@@ -64,14 +64,6 @@ module GithubMirror
       end
     end
 
-    def write_changed
-      IO.write("#{dir}/mirror-changed", "")
-    end
-
-    def is_changed?
-      File.exist?("#{dir}/mirror-changed")
-    end
-
     public
 
     def run(url, pushed_at)
@@ -82,7 +74,6 @@ module GithubMirror
           unless @dry_run
             do_fetch
             write_pushed pushed_at
-            write_changed
           end
         else
           # puts "No change for #{url}"
@@ -92,11 +83,8 @@ module GithubMirror
         unless @dry_run
           do_clone url
           write_pushed pushed_at
-          write_changed
         end
       end
-
-      is_changed?
     end
 
   end
