@@ -8,8 +8,12 @@ module GithubMirror
       return if new_commits.empty?
 
       cmdline = %w[ git log ] + git_log_opts
+
+      # FIXME should use --stdin to pass the commits on stdin, instead of the
+      # command line
       cmdline.concat new_commits
       cmdline.concat old_commits.map {|c| "^"+c}
+
       # puts cmdline.join " "
       # puts "#{git_dir} : #{cmdline.join " "}"
 
