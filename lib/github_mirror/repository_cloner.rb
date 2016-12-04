@@ -5,7 +5,7 @@ require 'set'
 
 module GithubMirror
 
-  class CloneOne
+  class RepositoryCloner
 
     attr_reader :dir, :dry_run
 

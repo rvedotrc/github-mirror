@@ -31,7 +31,7 @@ def do_repo(repo)
   local_dir = url.gsub("git://github.com/", "var/github/").gsub(/\.git$/, "")
 
   cloner = Rosarium::Promise.execute do
-    cloner = GithubMirror::CloneOne.new(local_dir, false)
+    cloner = GithubMirror::RepositoryCloner.new(local_dir, false)
     cloner.run(url, pushed_at)
   end
 
