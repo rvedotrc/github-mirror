@@ -6,8 +6,9 @@ module GithubMirror
 
   class AnalyseCommits
 
-    # This just analyses *all* the interesting commits found to date
-    # - there is no incremental behaviour yet.
+    def interesting?(lines)
+      lines.any? {|l| l.match /AKIA/}
+    end
 
     def extract_secrets(text)
       text = text.join ""
@@ -90,38 +91,49 @@ module GithubMirror
       f
     end
 
+    def analyse(commit, file, hunk)
+      old_text = hunk.select {|l| l.match /^[ -]/}.map {|l| l[1..-1]}
+      new_text = hunk.select {|l| l.match /^[ +]/}.map {|l| l[1..-1]}
+
+      old_secrets = extract_secrets old_text
+      new_secrets = extract_secrets new_text
+
+      return if old_secrets == new_secrets
+
+      old_permutations = permute_key_pairs(old_secrets)
+      new_permutations = permute_key_pairs(new_secrets)
+
+      return if old_permutations.empty? and new_permutations.empty?
+
+      {
+        "commit" => parse_commit(commit),
+        "file" => parse_file(file),
+        # "hunk" => hunk,
+        "old_secrets" => old_secrets,
+        "new_secrets" => new_secrets,
+        "old_permutations" => old_permutations,
+        "new_permutations" => new_permutations,
+      }
+    end
+
+    # This just analyses *all* the interesting commits found to date
+    # - there is no incremental behaviour yet.
+
     def run
       out = []
 
       Dir.glob("var/github/*/*/interesting.json").each do |interesting_file|
+        base = {
+          "local_dir" => parse_local_dir(File.dirname(interesting_file)),
+        }
         data = JSON.parse(IO.read interesting_file)
 
         data.each do |c|
-          commit, file, hunk = c["commit"], c["file"], c["hunk"]
-
-          old_text = hunk.select {|l| l.match /^[ -]/}.map {|l| l[1..-1]}
-          new_text = hunk.select {|l| l.match /^[ +]/}.map {|l| l[1..-1]}
-
-          old_secrets = extract_secrets old_text
-          new_secrets = extract_secrets new_text
-
-          next if old_secrets == new_secrets
-
-          old_permutations = permute_key_pairs(old_secrets)
-          new_permutations = permute_key_pairs(new_secrets)
-
-          out << {
-            "local_dir" => parse_local_dir(File.dirname(interesting_file)),
-            "commit" => parse_commit(commit),
-            "file" => parse_file(file),
-            # "hunk" => hunk,
-            "old_secrets" => old_secrets,
-            "new_secrets" => new_secrets,
-            "old_permutations" => old_permutations,
-            "new_permutations" => new_permutations,
-          }
+          d = analyse c["commit"], c["file"], c["hunk"]
+          if d
+            out << base.merge(d)
+          end
         end
-
       end
 
       # Ordered by *commit* time, not discovery time.  So new entries won't

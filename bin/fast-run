@@ -35,6 +35,15 @@ def do_repo(repo)
     cloner.run(url, pushed_at)
   end
 
+  aws = cloner.then do
+    GithubMirror::AwsCredentialsCommitScanner.new(local_dir).run
+  end.then do |state|
+    { log: state["log"] }
+  end.catch do |e|
+    puts "FAILED to update #{local_dir} for AwsCredentialsCommitScanner: #{e}"
+    { error: e }
+  end
+
   sweary = cloner.then do
     GithubMirror::SwearyCommitScanner.new(local_dir).run
   end.then do |state|
@@ -44,8 +53,11 @@ def do_repo(repo)
     { error: e }
   end
 
-  sweary.then do |s|
-    repo.merge(sweary_commits: s)
+  Rosarium::Promise.all([aws, sweary]) do |r_aws, r_sweary|
+    repo.merge(
+      aws_credentials_commits: r_aws,
+      sweary_commits: r_sweary,
+    )
   end
 end
 
