@@ -23,7 +23,9 @@ def do_repo(repo)
   org = url.split('/')[3]
 
   unless repo_allowed?(repo, org)
-    return Rosarium::Promise.resolve nil
+    return Rosarium::Promise.resolve(
+      repo.merge(allowed: false)
+    )
   end
 
   local_dir = url.gsub("git://github.com/", "var/github/").gsub(/\.git$/, "")
@@ -33,10 +35,17 @@ def do_repo(repo)
     cloner.run(url, pushed_at)
   end
 
-  cloner.then do
+  sweary = cloner.then do
     GithubMirror::SwearyCommitScanner.new(local_dir).run
+  end.then do |state|
+    { log: state["log"] }
   end.catch do |e|
     puts "FAILED to update #{local_dir} for SwearyCommitScanner: #{e}"
+    { error: e }
+  end
+
+  sweary.then do |s|
+    repo.merge(sweary_commits: s)
   end
 end
 
@@ -46,6 +55,8 @@ lister = GithubMirror::RepositoryLister.new(github_client, json_cache)
 # The iterator pattern doesn't play at all well with promises ("FiberError:
 # fiber called across threads" - i.e. the iterators are mutable), so use the
 # block pattern instead.
-Rosarium::Promise.all(lister.each_page.map {|page| do_page page}).value!
+r = Rosarium::Promise.all(lister.each_page.map {|page| do_page page}).value!.flatten
+
+puts JSON.generate(r)
 
 # eof fast-run

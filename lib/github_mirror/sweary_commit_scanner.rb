@@ -20,6 +20,8 @@ module GithubMirror
         state["pushed_at"] = pushed_at
         json_cache.write state
       end
+
+      state
     end
 
     private

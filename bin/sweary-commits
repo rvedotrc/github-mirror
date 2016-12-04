@@ -1,0 +1,14 @@
+#!/usr/bin/env ruby
+
+require 'json'
+
+JSON.parse($stdin.read).each do |r|
+  r["sweary_commits"] or next
+  log = r["sweary_commits"]["log"]
+  if log and !log.empty?
+    log = log.map {|l| {git_url: r["git_url"]}.merge log_entry: l}
+    log.each do |l|
+      puts JSON.generate(l)
+    end
+  end
+end
