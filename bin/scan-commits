@@ -1,6 +1,0 @@
-#!/usr/bin/env ruby
-
-$: << "lib"
-require 'github_mirror'
-
-GithubMirror::ScanCommits.new.run

@@ -1,7 +1,0 @@
-#!/usr/bin/env ruby
-
-$: << "lib"
-require 'github_mirror'
-
-lister = GithubMirror::ListRepositories.new
-lister.save(lister.data)

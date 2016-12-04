@@ -89,43 +89,4 @@ module GithubMirror
 
   end
 
-  class CloneMissing
-
-    attr_reader :dry_run
-
-    def initialize(dry_run)
-      @dry_run = dry_run
-    end
-
-    def run(data)
-      config = JSON.parse(IO.read "etc/github-mirror.json")
-
-      ignored_orgs = Set.new
-
-      data.each do |r|
-        url = r[:git_url]
-        pushed_at = r[:pushed_at]
-        org = url.split('/')[3]
-
-        unless config["github"]["allow_orgs"].nil? or config["github"]["allow_orgs"].include? org
-          ignored_orgs << org
-          next
-        end
-
-        local_dir = url.gsub("git://github.com/", "var/github/").gsub(/\.git$/, "")
-        cloner = CloneOne.new(local_dir, dry_run)
-        if block_given?
-          yield cloner, url, pushed_at
-        else
-          cloner.run(url, pushed_at)
-        end
-      end
-
-      unless ignored_orgs.empty?
-        puts "Ignored orgs: #{ignored_orgs.to_a.sort.join " "}"
-      end
-    end
-
-  end
-
 end

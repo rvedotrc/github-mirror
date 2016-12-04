@@ -1,5 +1,3 @@
-require 'json'
-require 'set'
 require 'time'
 
 module GithubMirror
@@ -114,33 +112,6 @@ module GithubMirror
         "old_permutations" => old_permutations,
         "new_permutations" => new_permutations,
       }
-    end
-
-    # This just analyses *all* the interesting commits found to date
-    # - there is no incremental behaviour yet.
-
-    def run
-      out = []
-
-      Dir.glob("var/github/*/*/interesting.json").each do |interesting_file|
-        base = {
-          "local_dir" => parse_local_dir(File.dirname(interesting_file)),
-        }
-        data = JSON.parse(IO.read interesting_file)
-
-        data.each do |c|
-          d = analyse c["commit"], c["file"], c["hunk"]
-          if d
-            out << base.merge(d)
-          end
-        end
-      end
-
-      # Ordered by *commit* time, not discovery time.  So new entries won't
-      # necessarily appear at the end of the list.
-      out.sort_by! {|i| i["commit"][:time][:epoch] }
-
-      IO.write "var/commits-and-secrets.json", JSON.pretty_generate(out)+"\n"
     end
 
   end
