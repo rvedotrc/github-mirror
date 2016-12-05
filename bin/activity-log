@@ -3,25 +3,29 @@
 require 'json'
 require 'time'
 
-def do_permutation(entry, permutation, is_added)
-  t = entry["commit"]["time"]["iso"]
-  org = entry["local_dir"]["github"]["organisation"]
-  repo = entry["local_dir"]["github"]["repository"]
-  file = entry["file"]["filename"]
+def do_permutation(r, l, permutation, is_added)
+  org = r["git_url"].split('/')[3]
+  repo = r["git_url"].split('/')[4].sub(/\.git$/, "")
+
+  t = l["possible_secrets"]["commit"]["time"]["iso"]
+  file = l["possible_secrets"]["file"]["filename"]
 
   access, secret = permutation
 
   puts "#{is_added ? "+" : "-"} #{t} #{access} #{secret} #{org}/#{repo}/#{file}"
 end
 
-data = JSON.parse(IO.read "var/commits-and-secrets.json")
+data = JSON.parse(IO.read "var/fast-run.json")
+data.each do |r|
+  if aws = r["aws_credentials_commits"]
+    aws["log"].each do |l|
+      l["possible_secrets"]["old_permutations"].each do |perm|
+        do_permutation r, l, perm, false
+      end
 
-data.each do |entry|
-  entry["old_permutations"].each do |p|
-    do_permutation entry, p, false
-  end
-
-  entry["new_permutations"].each do |p|
-    do_permutation entry, p, true
+      l["possible_secrets"]["new_permutations"].each do |perm|
+        do_permutation r, l, perm, true
+      end
+    end
   end
 end
