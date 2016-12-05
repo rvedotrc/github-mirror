@@ -18,7 +18,38 @@ end
 state = load_state
 state["by_access_key"] ||= {}
 
-commits = JSON.parse(IO.read "var/commits-and-secrets.json")
+@fast_run = JSON.parse(IO.read "var/fast-run.json")
+def show_matching_commits(access_key_id)
+  @fast_run.each do |r|
+    aws = r["aws_credentials_commits"]
+    if aws
+      aws["log"].map do |c|
+
+        this_key = %w[ old_permutations new_permutations ].any? do |pk|
+          c["possible_secrets"][pk].any? {|comb| comb.first == access_key_id }
+        end
+
+        if this_key
+
+          org = r["git_url"].split('/')[3]
+          repo = r["git_url"].split('/')[4].sub(/\.git$/, "")
+          hash = c["possible_secrets"]["commit"]["commit"]
+          path = c["possible_secrets"]["file"]["filename"]
+          file_md5 = Digest::MD5.hexdigest(path)
+          url = "https://github.com/#{org}/#{repo}/commit/#{hash}\#diff-#{file_md5}"
+
+          privacy = if r["is_private"]
+                      "private"
+                    else
+                      "public"
+                    end
+
+          puts "  " + privacy + " " + c["possible_secrets"]["commit"]["time"]["iso"] + " " + url
+        end # if this key
+      end # log
+    end # if aws
+  end # repo
+end
 
 repos = JSON.parse(IO.read "var/list-repos.json")
 
@@ -46,44 +77,7 @@ state["by_access_key"].each do |key, info|
   dead_date = (info["bad_key"] || []).first || "-"
 
   puts "#{key}\t#{desc}\t#{live_date}\t#{dead_date}\t#{user || '-'}\t#{account_info ? account_info["account_name"] : '-'}"
-
   puts ""
-  puts "Commits containing this key:"
-
-  commits.each do |c|
-    this_key = %w[ old_permutations new_permutations ].any? do |pk|
-      c[pk].any? {|comb| comb.first == key }
-    end
-
-    if this_key
-      org = c["local_dir"]["github"]["organisation"]
-      repo = c["local_dir"]["github"]["repository"]
-      commit = c["commit"]["commit"]
-      path = c["file"]["filename"]
-      # url = "https://github.com/#{org}/#{repo}/blob/#{commit}/#{path}"
-      file_md5 = Digest::MD5.hexdigest(path)
-      url = "https://github.com/#{org}/#{repo}/commit/#{commit}\#diff-#{file_md5}"
-
-      repo_metadata = repos.find {|r| r["git_url"] == "git://github.com/#{org}/#{repo}.git"}
-      privacy = if !repo_metadata
-                  "unknown"
-                elsif repo_metadata["is_private"]
-                  "private"
-                else
-                  "public"
-                end
-
-      puts privacy + " " + c["commit"]["time"]["iso"] + " " + url
-
-  #     puts JSON.pretty_generate({
-  #       repository: c["local_dir"]["github"],
-  #       commit: c["commit"]["commit"],
-  #       time: c["commit"]["time"]["iso"],
-  #       filename: c["file"]["filename"],
-  #       url: url,
-  #     })
-    end
-  end
+  show_matching_commits key
   puts ""
-
 end
