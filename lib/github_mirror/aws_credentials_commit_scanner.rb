@@ -32,7 +32,7 @@ module GithubMirror
     end
 
     def scan(state)
-      $stdout.write "AwsCredentialsCommitScanner #{local_dir}\n"
+      puts "AwsCredentialsCommitScanner #{local_dir}"
 
       hashes_before = state["scanned_commits"] || []
       hashes_after = get_commit_hashes
