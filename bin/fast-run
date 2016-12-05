@@ -52,7 +52,7 @@ def do_repo(repo)
     { error: e }
   end
 
-  Rosarium::Promise.all([aws, sweary]) do |r_aws, r_sweary|
+  Rosarium::Promise.all([aws, sweary]).then do |r_aws, r_sweary|
     repo.merge(
       aws_credentials_commits: r_aws,
       sweary_commits: r_sweary,
@@ -60,14 +60,52 @@ def do_repo(repo)
   end
 end
 
-github_client = GithubMirror::GithubClient.get("etc/github-mirror.json")
-json_cache = GithubMirror::JSONCache.new("var/list-repos.json", 3600*10)
-lister = GithubMirror::RepositoryLister.new(github_client, json_cache)
-# The iterator pattern doesn't play at all well with promises ("FiberError:
-# fiber called across threads" - i.e. the iterators are mutable), so use the
-# block pattern instead.
-r = Rosarium::Promise.all(lister.each_page.map {|page| do_page page}).value!.flatten
+def do_all_repositories
+  github_client = GithubMirror::GithubClient.get("etc/github-mirror.json")
+  json_cache = GithubMirror::JSONCache.new("var/list-repos.json", 3600*10)
+  lister = GithubMirror::RepositoryLister.new(github_client, json_cache)
+  # The iterator pattern doesn't play at all well with promises ("FiberError:
+  # fiber called across threads" - i.e. the iterators are mutable), so use the
+  # block pattern instead.
+  Rosarium::Promise.all(
+    lister.each_page.map {|page| do_page page}
+  ).then do |pages|
+    pages.flatten
+  end
+end
 
-GithubMirror::JsonCache.new("var/fast-run.json", 0).write(r)
+def make_sweary_commit_log(v)
+  c = []
+
+  v.each do |r|
+    r[:sweary_commits] or next
+    log = r[:sweary_commits][:log]
+    if log and !log.empty?
+      log = log.map {|l| {git_url: r["git_url"]}.merge log_entry: l}
+      c.concat log
+    end
+  end
+
+  c.uniq! {|l| l[:log_entry].first}
+
+  c.sort_by! do |l|
+    l[:log_entry].find {|t| t.start_with? "Date:"}
+  end
+
+  c
+end
+
+all_repositories = do_all_repositories
+
+save_fast_run = all_repositories.then do |v|
+  GithubMirror::JsonCache.new("var/fast-run.json", nil).write(v)
+end
+
+save_sweary_commits = all_repositories.then do |v|
+  l = make_sweary_commit_log v
+  GithubMirror::JsonCache.new("var/sweary-commits.json", nil).write(l)
+end
+
+Rosarium::Promise.all([ save_fast_run, save_sweary_commits ]).value!
 
 # eof fast-run
