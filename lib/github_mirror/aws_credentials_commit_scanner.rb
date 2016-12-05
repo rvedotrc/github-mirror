@@ -52,7 +52,7 @@ module GithubMirror
     end
 
     def each_interesting_log(hashes_before, hashes_after)
-      GitLogRunner.run(git_dir, %w[ --reverse --date=iso-strict -U10 --cc ], hashes_after, hashes_before) do |found|
+      GitLogRunner.run(git_dir, %w[ --reverse --date=iso-strict -U10 --cc -GAKIA ], hashes_after, hashes_before) do |found|
         if m = extract_possible_secrets(found)
           r = {
             commit_lines: found[:commit_lines],
