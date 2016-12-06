@@ -1,5 +1,6 @@
 require_relative 'github_mirror/analyse_commits.rb'
 require_relative 'github_mirror/aws_credentials_commit_scanner.rb'
+require_relative 'github_mirror/aws_key_pair.rb'
 require_relative 'github_mirror/git_log_parser.rb'
 require_relative 'github_mirror/git_log_runner.rb'
 require_relative 'github_mirror/git_ref_reader.rb'
