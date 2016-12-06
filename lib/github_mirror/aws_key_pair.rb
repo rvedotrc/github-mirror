@@ -68,6 +68,15 @@ module GithubMirror
     # key was for.
     attr_reader :user_arn
 
+    def self.init_empty(access_key_id)
+      allocate.instance_eval do
+        @access_key_id = access_key_id
+        @wrong_secret_access_keys = [ ]
+        @state = :secret_not_found
+        self
+      end
+    end
+
     def self.init_secret_not_found(access_key_id, secret_access_key)
       allocate.instance_eval do
         @access_key_id = access_key_id

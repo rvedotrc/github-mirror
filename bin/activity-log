@@ -12,20 +12,25 @@ def do_permutation(r, l, permutation, is_added)
 
   access, secret = permutation
 
-  puts "#{is_added ? "+" : "-"} #{t} #{access} #{secret} #{org}/#{repo}/#{file}"
+  [ t, "#{is_added ? "+" : "-"} #{t} #{access} #{secret} #{org}/#{repo}/#{file}" ]
 end
 
 data = JSON.parse(IO.read "var/fast-run.json")
+
+lines = []
+
 data.each do |r|
   if aws = r["aws_credentials_commits"]
     aws["log"].each do |l|
       l["possible_secrets"]["old_permutations"].each do |perm|
-        do_permutation r, l, perm, false
+        lines << do_permutation(r, l, perm, false)
       end
 
       l["possible_secrets"]["new_permutations"].each do |perm|
-        do_permutation r, l, perm, true
+        lines << do_permutation(r, l, perm, true)
       end
     end
   end
 end
+
+lines.sort_by {|l| l[0]}.each {|l| puts l[1]}

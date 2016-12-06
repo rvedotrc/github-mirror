@@ -7,6 +7,17 @@ describe GithubMirror::AwsKeyPair do
     GithubMirror::AwsKeyPair.from_h(JSON.parse text)
   end
 
+  it "should init wrong secret (empty)" do
+    k = GithubMirror::AwsKeyPair.init_empty('ak')
+    copy = make_copy_of k
+
+    [ k, copy ].each do |what|
+      expect(what.access_key_id).to eq('ak')
+      expect(what.wrong_secret_access_keys).to be_empty
+      expect(what.state).to eq(:secret_not_found)
+    end
+  end
+
   it "should init wrong secret" do
     k = GithubMirror::AwsKeyPair.init_secret_not_found('ak', 'sak')
     copy = make_copy_of k
