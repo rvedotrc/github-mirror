@@ -22,7 +22,10 @@ state["by_access_key"] ||= {}
 def show_matching_commits(access_key_id)
   @fast_run.each do |r|
     aws = r["aws_credentials_commits"]
-    if aws
+
+    # Might only have error, not log
+    # (would benefit from a data class here of course)
+    if aws and aws["log"]
       aws["log"].map do |c|
 
         this_key = %w[ old_permutations new_permutations ].any? do |pk|
