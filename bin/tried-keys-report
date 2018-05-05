@@ -2,10 +2,16 @@
 
 require 'json'
 require 'digest'
+require 'forge-helper'
 
-@state_file = "var/try-keys.json"
-account_list = "var/aws-accounts.json"
-a = JSON.parse(IO.read account_list)
+def get_accounts
+  r = ForgeHelper.new.connect("https://aws-accounts.tools.bbc.co.uk/v1/accounts").get
+  JSON.parse(r.body)
+end
+
+@accounts = get_accounts["accounts"]
+
+@state_file = "var/aws-key-pairs.json"
 
 def load_state
   begin
@@ -18,7 +24,7 @@ end
 state = load_state
 state["by_access_key"] ||= {}
 
-@fast_run = JSON.parse(IO.read "var/fast-run.json")
+@fast_run = JSON.parse(IO.read "var/fast-run.json") # details of where each key was found
 def show_matching_commits(access_key_id)
   @fast_run.each do |r|
     aws = r["aws_credentials_commits"]
@@ -54,32 +60,21 @@ def show_matching_commits(access_key_id)
   end # repo
 end
 
-repos = JSON.parse(IO.read "var/list-repos.json")
-
 state["by_access_key"].each do |key, info|
-  bad = info.has_key? "bad_key"
-  found = info.has_key? "secret_access_key"
   user = info["user_arn"]
-
-  acc = info["account_aliases"] || []
-
-  desc = if found
-           bad ? "killed" : "alive"
-         else
-           bad ? "bad" : "unknown"
-         end
+  desc = info["state"]
 
   if user
     account_id = user.split(/:/)[4]
-    account_info = a["accounts"].find {|acc| acc["account_id"] == account_id}
+    account_info = @accounts[account_id]
   else
     account_info = nil
   end
 
-  live_date = (info["secret_found"] || []).first || "-"
-  dead_date = (info["bad_key"] || []).first || "-"
+  live_date = info["date_secret_found_first"] || "-"
+  dead_date = info["date_bad"] || "-"
 
-  puts "#{key}\t#{desc}\t#{live_date}\t#{dead_date}\t#{user || '-'}\t#{account_info ? account_info["account_name"] : '-'}"
+  puts "#{key}\t#{desc}\t#{live_date}\t#{dead_date}\t#{user || '-'}\t#{account_info ? account_info["name"] : '-'}"
   puts ""
   show_matching_commits key
   puts ""

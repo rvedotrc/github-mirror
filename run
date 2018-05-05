@@ -4,8 +4,8 @@ set -eux
 
 cd "$( dirname "$0" )"
 
-./bin/fast-run
+bundle exec ./bin/fast-run
 
 if [ -x ./recheck-keys.local ] ; then
-    ./recheck-keys.local
+    bundle exec ./recheck-keys.local
 fi
