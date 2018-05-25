@@ -8,3 +8,7 @@ source 'https://rubygems.org' do
   # ewww
   gem 'faraday', '0.9.2'
 end
+
+source 'https://gems.cloud.bbc.co.uk/' do
+  gem 'forge-helper'
+end
