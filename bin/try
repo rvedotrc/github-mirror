@@ -18,7 +18,7 @@ github_client = Github.new(
 )
 
 GithubMirror::CacheingThing.new('var/repositories.json', Time.now - 86400) do
-  github_client.repos.list(page: 324).lazy_each
+  github_client.repos.list.lazy_each
 end.each do |repo|
   puts "#{repo['size']}\t#{repo['full_name']}"
 end
