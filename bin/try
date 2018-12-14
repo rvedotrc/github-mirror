@@ -17,10 +17,19 @@ github_client = Github.new(
   auto_pagination: false,
 )
 
+@mutex = Mutex.new
+@int_count = 0
+Signal.trap('INT') do
+  Thread.new { @mutex.synchronize { @int_count += 1 } }
+  puts "Stopping..."
+  Signal.trap('INT', 'DEFAULT')
+end
+
 GithubMirror::CacheingThing.new('var/repositories.json', Time.now - 86400) do
   github_client.repos.list.lazy_each
 end.each do |repo|
   puts "#{repo['size']}\t#{repo['full_name']}"
+  break if @mutex.synchronize { @int_count > 0 }
 end
 
 # eof try
