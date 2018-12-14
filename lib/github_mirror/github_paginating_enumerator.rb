@@ -2,7 +2,7 @@ require 'github_api'
 
 class Github::ResponseWrapper
   def lazy_each(&block)
-    e = GithubPaginatingEnumerator.new(self)
+    e = GithubMirror::GithubPaginatingEnumerator.new(self)
     if block_given?
       e.each(&block)
     else
