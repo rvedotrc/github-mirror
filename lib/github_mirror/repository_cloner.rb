@@ -30,7 +30,10 @@ class GithubMirror
       tmp = "#{canonical_dir}/mirror.tmp"
 
       FileUtils.rm_rf(tmp)
-      system "git", "clone", "--bare", repo['ssh_url'], tmp
+      system "git", "clone",
+        "--bare",
+        "--config", 'remote.origin.fetch=+refs/*:refs/origin/*',
+        repo['ssh_url'], tmp
       $?.success? or raise "git clone #{repo['full_name']} failed"
 
       File.rename tmp, target
