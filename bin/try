@@ -48,7 +48,12 @@ end.each do |repo|
   end
 end
 
-Rosarium::Promise.all_settled(promises).value!
-Rosarium::Promise.all(promises).value!
+begin
+  Rosarium::Promise.all_settled(promises).then do
+    Rosarium::Promise.all(promises)
+  end.value!
+ensure
+  Rosarium::EXECUTOR.wait_until_idle
+end
 
 # eof try
