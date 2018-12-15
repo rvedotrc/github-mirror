@@ -19,26 +19,19 @@ require 'rosarium'
 require 'rosarium/promise_concurrency_limiter'
 
 def mirror_to(repo, canonical_dir, full_name)
-  new_dir = canonical_dir
-  old_dir = "var/github/#{full_name}"
-
-  if Dir.exists?(new_dir)
-    fetch repo, new_dir
-  elsif Dir.exists?(old_dir)
-    puts "#{old_dir} => #{new_dir}"
-    File.rename old_dir, new_dir
-    fetch repo, new_dir
+  if Dir.exists?(canonical_dir)
+    fetch repo, canonical_dir
   else
-    clone repo, new_dir
+    clone repo, canonical_dir
   end
 end
 
-def clone(repo, new_dir)
-  puts "clone #{repo['full_name']} into #{new_dir}"
+def clone(repo, canonical_dir)
+  puts "clone #{repo['full_name']} into #{canonical_dir}"
 
-  FileUtils.mkdir_p new_dir
-  target = "#{new_dir}/mirror"
-  tmp = "#{new_dir}/mirror.tmp"
+  FileUtils.mkdir_p canonical_dir
+  target = "#{canonical_dir}/mirror"
+  tmp = "#{canonical_dir}/mirror.tmp"
 
   FileUtils.rm_rf(tmp)
   system "git", "clone", "--bare", repo['ssh_url'], tmp
@@ -47,8 +40,8 @@ def clone(repo, new_dir)
   File.rename tmp, target
 end
 
-def fetch(repo, new_dir)
-  pushed_at = "#{new_dir}/pushed_at"
+def fetch(repo, canonical_dir)
+  pushed_at = "#{canonical_dir}/pushed_at"
 
   already_done = begin
                    IO.read(pushed_at).chomp
@@ -60,8 +53,8 @@ def fetch(repo, new_dir)
     return
   end
 
-  puts "git fetch #{repo['full_name']} => #{new_dir}"
-  do_fetch new_dir + "/mirror"
+  puts "git fetch #{repo['full_name']} => #{canonical_dir}"
+  do_fetch canonical_dir + "/mirror"
   IO.write(pushed_at, repo['pushed_at']+"\n")
 end
 
