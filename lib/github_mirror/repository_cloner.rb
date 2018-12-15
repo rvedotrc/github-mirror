@@ -4,10 +4,11 @@ require 'tempfile'
 class GithubMirror
   class RepositoryCloner
 
-    attr_reader :repo, :canonical_dir, :full_name
+    attr_reader :ssh_url, :pushed_at, :canonical_dir, :full_name
 
-    def initialize(repo, canonical_dir, full_name)
-      @repo = repo
+    def initialize(ssh_url, pushed_at, canonical_dir, full_name)
+      @ssh_url = ssh_url
+      @pushed_at = pushed_at
       @canonical_dir = canonical_dir
       @full_name = full_name
     end
@@ -22,51 +23,48 @@ class GithubMirror
 
     private
 
+    def target
+      "#{canonical_dir}/mirror"
+    end
+
     def clone
-      puts "clone #{repo['full_name']} into #{canonical_dir}"
+      puts "clone #{full_name} into #{canonical_dir}"
 
       FileUtils.mkdir_p canonical_dir
-      target = "#{canonical_dir}/mirror"
-      tmp = "#{canonical_dir}/mirror.tmp"
-
+      tmp = target + ".tmp"
+      FileUtils.rm_rf(target)
       FileUtils.rm_rf(tmp)
+
       system "git", "clone",
         "--bare",
         "--config", 'remote.origin.fetch=+refs/*:refs/origin/*',
-        repo['ssh_url'], tmp
-      $?.success? or raise "git clone #{repo['full_name']} failed"
+        ssh_url, tmp
+      $?.success? or raise "git clone #{full_name} failed"
 
       File.rename tmp, target
+
+      with_pushed_at { }
     end
 
     def fetch
-      pushed_at = "#{canonical_dir}/pushed_at"
-
-      already_done = begin
-                       IO.read(pushed_at).chomp
-                     rescue Errno::ENOENT
-                     end
-
-      if repo['pushed_at'] == already_done
-        puts "fetch #{repo['full_name']} (nothing to do)"
-        return
+      updated = with_pushed_at do
+        puts "git fetch #{full_name} => #{canonical_dir}"
+        do_fetch
       end
 
-      puts "git fetch #{repo['full_name']} => #{canonical_dir}"
-      do_fetch canonical_dir + "/mirror"
-      IO.write(pushed_at, repo['pushed_at']+"\n")
+      updated or puts "fetch #{full_name} (nothing to do)"
     end
 
-    def do_fetch(git_dir)
+    def do_fetch
       Tempfile.open do |t|
         Process.wait(Process.spawn(
-          "git", "--git-dir", git_dir, "fetch", "--prune",
+          "git", "--git-dir", target, "fetch", "--prune",
           out: t,
           err: t,
         ))
         t.rewind
 
-        puts(*t.each_line.map {|t| "#{git_dir} : #{t}"})
+        puts(*t.each_line.map {|t| "#{full_name} : #{t}"})
         next if $?.success?
 
         t.rewind
@@ -77,8 +75,26 @@ class GithubMirror
           next
         end
 
-        raise "git fetch #{git_dir} (#{full_name}) failed: #{log}"
+        raise "git fetch #{full_name} failed: #{log}"
       end
+    end
+
+    def with_pushed_at
+      pushed_at_file = "#{canonical_dir}/pushed_at"
+
+      already_done = begin
+                       IO.read(pushed_at_file).chomp
+                     rescue Errno::ENOENT
+                     end
+
+      if already_done == pushed_at
+        return false
+      end
+
+      yield
+
+      IO.write(pushed_at_file, pushed_at+"\n")
+      true
     end
 
   end

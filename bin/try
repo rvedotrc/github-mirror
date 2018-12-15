@@ -42,7 +42,7 @@ end.each do |repo|
   promises << limiter.promise do
     Rosarium::Promise.execute do
       next :cancelled if File.exists? 'var/stop'
-      GithubMirror::RepositoryProcessor.new.process_repo repo
+      GithubMirror::RepositoryProcessor.new('var/github', repo).process
     end
   end
 end
