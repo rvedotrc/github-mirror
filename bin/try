@@ -3,106 +3,28 @@
 
 $: << "lib"
 
-@stdout_mutex = Mutex.new
-
-def puts(*args)
-  @stdout_mutex.synchronize do
-    super *args
-  end
-end
-
+require 'github_api'
 require 'github_mirror/cacheing_thing'
 require 'github_mirror/github_paginating_enumerator'
-require 'fileutils'
-require 'tempfile'
+require 'github_mirror/repository_processor'
+require 'json'
 require 'rosarium'
 require 'rosarium/promise_concurrency_limiter'
 
-def mirror_to(repo, canonical_dir, full_name)
-  if Dir.exists?(canonical_dir)
-    fetch repo, canonical_dir
-  else
-    clone repo, canonical_dir
-  end
-end
+begin
+  stdout_mutex = Mutex.new
 
-def clone(repo, canonical_dir)
-  puts "clone #{repo['full_name']} into #{canonical_dir}"
-
-  FileUtils.mkdir_p canonical_dir
-  target = "#{canonical_dir}/mirror"
-  tmp = "#{canonical_dir}/mirror.tmp"
-
-  FileUtils.rm_rf(tmp)
-  system "git", "clone", "--bare", repo['ssh_url'], tmp
-  $? == 0 or raise "git clone #{repo['full_name']} failed"
-
-  File.rename tmp, target
-end
-
-def fetch(repo, canonical_dir)
-  pushed_at = "#{canonical_dir}/pushed_at"
-
-  already_done = begin
-                   IO.read(pushed_at).chomp
-                 rescue Errno::ENOENT
-                 end
-
-  if repo['pushed_at'] == already_done
-    puts "fetch #{repo['full_name']} (nothing to do)"
-    return
-  end
-
-  puts "git fetch #{repo['full_name']} => #{canonical_dir}"
-  do_fetch canonical_dir + "/mirror"
-  IO.write(pushed_at, repo['pushed_at']+"\n")
-end
-
-def do_fetch(git_dir)
-  Tempfile.open do |t|
-    Process.wait(Process.spawn(
-      "git", "--git-dir", git_dir, "fetch", "--prune",
-      out: t,
-      err: t,
-    ))
-    t.rewind
-    puts(*t.each_line.map {|t| "#{git_dir} : #{t}"})
-    $?.success? or raise "git fetch #{git_dir} failed"
-  end
-end
-
-def process_repo(repo)
-  base_dir = 'var/github'
-
-  id = repo['id']
-  full_name = repo['full_name']
-  full_name.count('/') == 1 or raise "depth of #{full_name} != 1"
-
-  canonical_dir = "#{base_dir}/id/#{id}"
-  symlink_path = "#{base_dir}/full_name/#{full_name}"
-  symlink_target = "../../id/#{id}"
-
-  FileUtils.mkdir_p(canonical_dir)
-
-  mirror_to(repo, canonical_dir, full_name)
-
-  begin
-    if File.readlink(symlink_path) != symlink_target
-      File.unlink symlink_path
-      File.symlink symlink_target, symlink_path
+  define_method(:puts) do |*args|
+    stdout_mutex.synchronize do
+      super *args
     end
-  rescue Errno::ENOENT
-    FileUtils.mkdir_p(File.dirname symlink_path)
-    File.symlink symlink_target, symlink_path
   end
 end
 
-require 'json'
 config = JSON.parse(IO.read 'etc/github-mirror.json')
 user = config['github']['user']
 pass = config['github']['pass']
 
-require 'github_api'
 github_client = Github.new(
   basic_auth: user+':'+pass,
   auto_pagination: false,
@@ -115,17 +37,18 @@ FileUtils.rm_f 'var/stop'
 GithubMirror::CacheingThing.new('var/repositories.json', Time.now - 86400) do
   github_client.repos.list.lazy_each
 end.each do |repo|
-  if config['github']['allow_orgs'].include? repo['owner']['login']
-    # puts "#{repo['size']}\t#{repo['full_name']}"
-    promises << limiter.promise do
-      Rosarium::Promise.execute do
-        next :cancelled if File.exists? 'var/stop'
-        process_repo repo
-      end
+  next unless config['github']['allow_orgs'].include? repo['owner']['login']
+
+  promises << limiter.promise do
+    Rosarium::Promise.execute do
+      next :cancelled if File.exists? 'var/stop'
+      puts repo['full_name']
+      GithubMirror::RepositoryProcessor.new.process_repo repo
     end
   end
 end
 
 Rosarium::Promise.all_settled(promises).value!
+Rosarium::Promise.all(promises).value!
 
 # eof try
