@@ -31,7 +31,7 @@ github_client = Github.new(
 )
 
 promises = []
-limiter = Rosarium::PromiseConcurrencyLimiter.new(8)
+limiter = Rosarium::PromiseConcurrencyLimiter.new(3)
 FileUtils.rm_f 'var/stop'
 
 GithubMirror::CacheingThing.new('var/repositories.json', Time.now - 86400) do
@@ -39,17 +39,28 @@ GithubMirror::CacheingThing.new('var/repositories.json', Time.now - 86400) do
 end.each do |repo|
   next unless config['github']['allow_orgs'].include? repo['owner']['login']
 
-  promises << limiter.promise do
+  promise = limiter.promise do
     Rosarium::Promise.execute do
       next :cancelled if File.exists? 'var/stop'
       GithubMirror::RepositoryProcessor.new('var/github', repo).process
     end
   end
+
+  promise.define_singleton_method(:repo) { repo }
+
+  promises << promise
 end
 
 begin
   Rosarium::Promise.all_settled(promises).then do
-    Rosarium::Promise.all(promises)
+    puts ""
+    promises.select(&:rejected?).each do |promise|
+      puts "FAILED for #{promise.repo['full_name']} : #{promise.reason}"
+    end
+    puts ""
+    fulfilled_count = promises.count &:fulfilled?
+    rejected_count = promises.count &:rejected?
+    puts "All done - #{fulfilled_count} completed and #{rejected_count} crashed"
   end.value!
 ensure
   Rosarium::EXECUTOR.wait_until_idle

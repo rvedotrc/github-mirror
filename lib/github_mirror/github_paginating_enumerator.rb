@@ -56,6 +56,7 @@ class GithubMirror
         @page = @page.next_page
         @page_number += 1
         @index = 0
+        puts "Now on page #{@page_number}"
       end
 
       raise StopIteration.new

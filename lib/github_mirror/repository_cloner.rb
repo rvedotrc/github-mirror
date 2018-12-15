@@ -44,15 +44,15 @@ class GithubMirror
       File.rename tmp, target
 
       with_pushed_at { }
+
+      true
     end
 
     def fetch
-      updated = with_pushed_at do
+      with_pushed_at do
         puts "git fetch #{full_name} => #{canonical_dir}"
         do_fetch
       end
-
-      updated or puts "fetch #{full_name} (nothing to do)"
     end
 
     def do_fetch
