@@ -14,7 +14,7 @@ class GithubMirror
     end
 
     def mirror
-      if Dir.exists?(canonical_dir)
+      if Dir.exists?(target)
         fetch
       else
         clone
@@ -28,7 +28,7 @@ class GithubMirror
     end
 
     def clone
-      puts "clone #{full_name} into #{canonical_dir}"
+      puts "clone #{full_name} into #{target}"
 
       FileUtils.mkdir_p canonical_dir
       tmp = target + ".tmp"
