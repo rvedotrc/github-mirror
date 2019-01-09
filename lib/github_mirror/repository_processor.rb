@@ -1,6 +1,6 @@
 require 'fileutils'
 require 'github_mirror/repository_cloner'
-require 'github_mirror/secret_material_scanner'
+# require 'github_mirror/secret_material_scanner'
 
 class GithubMirror
   class RepositoryProcessor
@@ -24,17 +24,17 @@ class GithubMirror
       RepositoryCloner.new(repo['ssh_url'], repo['pushed_at'], canonical_dir, full_name).mirror
       update_symlink
 
-      [
-        AWSAccessKeyScanner,
-        PrivateKeyScanner,
-      ].each do |c|
-        c.new(
-          canonical_dir,
-          canonical_dir + "/mirror",
-          full_name,
-          repo['pushed_at'],
-        ).run
-      end
+#       [
+#         AWSAccessKeyScanner,
+#         # PrivateKeyScanner,
+#       ].each do |c|
+#         c.new(
+#           canonical_dir,
+#           canonical_dir + "/mirror",
+#           full_name,
+#           repo['pushed_at'],
+#         ).run
+#       end
     end
 
     def update_symlink

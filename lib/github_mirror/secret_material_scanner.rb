@@ -21,12 +21,28 @@ class GithubMirror
       old_heads = state['heads'] || []
       new_heads = read_heads
 
-      new_log = read_new_commits(new_heads, old_heads)
-      puts "#{full_name} scanned heads=#{new_heads.count} logs=#{new_log.count}"
+      to_process = new_heads - old_heads
 
-      state['log'].concat new_log
-      state['pushed_at'] = pushed_at
-      state['heads'] = new_heads.sort
+      until to_process.empty?
+        pick = if to_process.count > 1 and commit_count(to_process, old_heads) > 5000
+                 new_heads.first
+               else
+                 new_heads
+               end
+        new_heads -= pick
+
+        new_log = read_new_commits(pick, old_heads)
+        puts "#{full_name} scanned pick=#{pick.count} new_heads=#{new_heads.count} old_heads=#{old_heads.count} logs=#{new_log.count}"
+
+        state['log'].concat new_log
+        state['pushed_at'] = pushed_at if new_heads.empty?
+        state['heads'] = new_heads.sort
+
+        set 'pushed_at' if that was the end
+        save state
+      end
+
+
 
       save_state state
     end
@@ -59,41 +75,35 @@ class GithubMirror
     def read_new_commits(new_heads, old_heads)
       new_only = new_heads - old_heads
       return [] if new_only.empty?
-      old_only = old_heads - new_heads
 
       rev_list = begin
         GitCommandRunner.run!(
           'git', 'rev-list',
           *new_only.sort,
-          *old_only.sort.map {|rev| "^"+rev},
+          *old_heads.sort.map {|rev| "^"+rev},
           chdir: git_dir,
         )
       end
 
       commit_count = rev_list[:out].each_line.count
 
-      raise "lol no #{commit_count} / #{new_only.count} / #{old_only.count}" if commit_count > 10000
+      raise "lol no #{commit_count} / #{new_only.count} / #{old_heads.count}" if commit_count > 10000
 
-      begin
-        r = GitCommandRunner.run!(
-          'git', 'log',
-            '--reverse',
-            '--date=iso-strict',
-            '-U10',
-            '--cc',
-            *git_log_arguments,
-            *new_only.sort,
-            *old_only.sort.map {|rev| "^"+rev},
-          chdir: git_dir,
-        )
+      r = GitCommandRunner.run!(
+        'git', 'log',
+          '--reverse',
+          '--date=iso-strict',
+          '-U10',
+          '--cc',
+          *git_log_arguments,
+          *new_only.sort,
+          *old_heads.sort.map {|rev| "^"+rev},
+        chdir: git_dir,
+      )
 
-        # Discard the "" right at the start of the string
-        # Discard any merge commits (which are included in spite of -G)
-        r[:out].split(/^commit /).select {|t| filter t}
-      rescue Exception => e
-        puts "FAILED in #{full_name} with #{new_only.count} + #{old_only.count} commits"
-        raise
-      end
+      # Discard the "" right at the start of the string
+      # Discard any merge commits (which are included in spite of -G)
+      r[:out].split(/^commit /).select {|t| filter t}
     end
 
   end
@@ -108,21 +118,7 @@ class GithubMirror
     end
 
     def state_file
-      "#{canonical_dir}/secret_material_scanner.json"
-    end
-  end
-
-  class PrivateKeyScanner < SecretMaterialScanner
-    def git_log_arguments
-      ['-GPRIVATE KEY']
-    end
-
-    def filter(t)
-      t.match /\bPRIVATE KEY/
-    end
-
-    def state_file
-      "#{canonical_dir}/PrivateKeyScanner.json"
+      "#{canonical_dir}/AWSAccessKeyScanner.json"
     end
   end
 
