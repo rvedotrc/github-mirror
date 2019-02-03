@@ -34,7 +34,8 @@ promises = []
 limiter = Rosarium::PromiseConcurrencyLimiter.new(3)
 FileUtils.rm_f 'var/stop'
 
-GithubMirror::CacheingThing.new('var/repositories.json', Time.now - 86400) do
+ttl = config['repositories_list_ttl'].to_i
+GithubMirror::CacheingThing.new('var/repositories.json', Time.now - ttl) do
   github_client.repos.list.lazy_each
 end.each do |repo|
   next unless config['github']['allow_orgs'].include? repo['owner']['login']
