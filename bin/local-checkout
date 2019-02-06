@@ -1,0 +1,137 @@
+#!/usr/bin/env ruby
+# vi: set ts=2 sw=2 :
+
+# Whereas 'try' makes a load of bare mirrors, the aim of this script is (mass) setup of
+# non-bare local checkouts:
+
+# – some sort of filter (?) for which repos we're going to process. e.g. regex on name.
+# – if new:
+  # – clone using 'master' (warn and don't clone if no 'master')
+# – if not new:
+  # – fetch
+  # – if current branch is master, AND checkout is clean, then merge
+  # – otherwise warn
+
+require 'fileutils'
+require 'find'
+require 'json'
+require 'rosarium'
+require 'tempfile'
+
+BARE_DIR = './var/github'
+CHECKOUT_DIR = './var/checkout'
+
+def is_master?(checkout_dir)
+  # Ewww
+  IO.read("#{checkout_dir}/.git/HEAD") == "ref: refs/heads/master\n"
+end
+
+def is_clean?(checkout_dir)
+  output = Tempfile.open do |f|
+    pid = Process.spawn("git", "status", "--porcelain", chdir: checkout_dir, out: f.fileno)
+    Process.wait pid
+    $?.success? or raise "git status failed"
+    f.rewind
+    f.read
+  end
+
+  output == ""
+end
+
+def update_local(id, full_names)
+  raise "!=1 full_names" if full_names.length != 1
+  full_name = full_names.first
+  puts "Mirroring #{id} for #{full_name}"
+
+  bare_dir = "#{BARE_DIR}/id/#{id}/mirror"
+  checkout_dir = "#{CHECKOUT_DIR}/full_name/#{full_name}"
+  result = {
+    bare_dir: bare_dir,
+    checkout_dir: checkout_dir,
+  }
+
+  puts "#{bare_dir} -> #{checkout_dir}"
+
+  if Dir.exist? checkout_dir
+    skip_reasons = []
+    skip_reasons << "it's not on master" unless is_master?(checkout_dir)
+    skip_reasons << "it's not clean" unless is_clean?(checkout_dir)
+
+    if skip_reasons.empty?
+      pid = Process.spawn("git", "pull", "--ff-only", chdir: checkout_dir)
+      Process.wait pid
+      $?.success? or raise "git pull failed"
+      puts "OK: #{checkout_dir} pulled"
+      result[:status] = :pulled
+    else
+      pid = Process.spawn("git", "fetch", chdir: checkout_dir)
+      Process.wait pid
+      $?.success? or raise "git fetch failed"
+      puts "WARNING: #{checkout_dir} only fetched, not merged, because #{skip_reasons.join " and "}"
+      result[:status] = :fetched
+      result[:skip_reasons] = skip_reasons
+    end
+  else
+    origin_url = "git@github.com:#{full_name}"
+    FileUtils.mkdir_p File.dirname(checkout_dir)
+    tmp_dir = "#{checkout_dir}.tmp"
+    FileUtils.rm_rf tmp_dir
+
+    system "git", "clone", "--reference", bare_dir, origin_url, tmp_dir
+    $?.success? or raise "git clone failed"
+    system "ls", "-al", File.dirname(checkout_dir)
+    File.rename tmp_dir, checkout_dir
+
+    puts "OK: #{checkout_dir} cloned"
+    { status: :cloned }
+    result[:status] = :cloned
+  end
+
+  result
+end
+
+to_do_by_id = {}
+config = JSON.parse(IO.read 'etc/github-mirror.json')
+
+Find.find("#{BARE_DIR}/full_name").each do |full_name_dir|
+  id = begin
+    File.readlink full_name_dir
+  rescue Errno::EINVAL
+    next
+  end
+
+  full_name = full_name_dir.sub "#{BARE_DIR}/full_name/", ""
+  puts full_name
+
+  if config['local_checkout']['full_name_match'].any? {|re| full_name.match re}
+    t = to_do_by_id[id] ||= { id: File.basename(id), full_names: [] }
+    t[:full_names] << full_name
+  end
+end
+
+promises = to_do_by_id.values.map do |v|
+  Rosarium::Promise.execute do
+    id = v[:id]
+    full_names = v[:full_names]
+    update_local(id, full_names)
+  end
+end
+
+all = Rosarium::Promise.all(promises).value!
+
+puts ""
+
+all.each do |r|
+  if r[:skip_reasons]
+    puts "#{r[:checkout_dir]} : #{r[:skip_reasons].join " and "}"
+  end
+end
+
+puts "" if all.any? {|r| r[:skip_reasons]}
+
+cloned_count = all.count {|r| r[:status] == :cloned }
+pulled_count = all.count {|r| r[:status] == :pulled }
+fetched_count = all.count {|r| r[:status] == :fetched }
+puts "#{cloned_count} cloned, #{pulled_count} pulled, #{fetched_count} fetched"
+
+# eof
