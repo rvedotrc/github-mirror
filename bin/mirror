@@ -67,4 +67,4 @@ ensure
   Rosarium::EXECUTOR.wait_until_idle
 end
 
-# eof try
+# eof
