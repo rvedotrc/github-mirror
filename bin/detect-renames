@@ -1,0 +1,82 @@
+#!/usr/bin/env ruby
+# vi: set ts=2 sw=2 :
+
+# Look for duplicate IDs under full_name. This would indicate that a repository has been renamed.
+
+$: << 'lib'
+
+require 'fileutils'
+require 'find'
+require 'json'
+require 'set'
+require 'tempfile'
+
+require 'command-runner'
+
+def ensure_remote_origin_url(git_dir, wanted_remote_origin_url)
+  config_item = 'remote.origin.url'
+
+  current_remote_origin_url = CommandRunner.do_system!(
+    'git', 'config', '--get', config_item, chdir: git_dir
+  ).log.chomp
+
+  if current_remote_origin_url != wanted_remote_origin_url
+    puts "Updating #{config_item} of #{git_dir} to #{wanted_remote_origin_url}"
+    CommandRunner.do_system!('git', 'config', config_item, wanted_remote_origin_url, chdir: git_dir)
+  end
+end
+
+BARE_DIR = './var/github'
+CHECKOUT_DIR = './var/checkout'
+
+id_to_full_names = Dir.glob("#{BARE_DIR}/full_name/*/*").reduce({}) do |h, symlink|
+  target = File.readlink symlink
+  id = File.basename target
+  full_name = symlink.sub "#{BARE_DIR}/full_name/", ""
+
+  (h[id] ||= Set.new) << full_name
+
+  h
+end
+
+repositories = JSON.parse(IO.read "./var/repositories.json")
+
+repositories.each do |repo|
+  full_names = id_to_full_names[repo["id"].to_s]
+
+  if full_names.count > 1
+    current_full_name = repo["full_name"]
+    other_full_names = full_names - [ current_full_name ]
+    puts "##{repo["id"]} #{current_full_name} was previously known as #{other_full_names.sort.join ' '}"
+
+    wanted_remote_origin_url = "git@github.com:#{current_full_name}.git"
+
+    # - update the origin url of the bare mirror (./var/github/id/N)
+    ensure_remote_origin_url "#{BARE_DIR}/id/#{repo['id']}/mirror", wanted_remote_origin_url
+
+    # - for any local checkouts (./var/checkout/full_name/OLD-X/OLD-Y),
+    #   - if ./var/checkout/full_name/NEW-X/NEW-Y doesn't exist, then rename and set the upstream
+    #   - otherwise complain
+
+    other_full_names.each do |other_full_name|
+      old_checkout_dir = "#{CHECKOUT_DIR}/full_name/#{other_full_name}"
+      new_checkout_dir = "#{CHECKOUT_DIR}/full_name/#{current_full_name}"
+
+      if Dir.exist? old_checkout_dir
+        ensure_remote_origin_url old_checkout_dir, wanted_remote_origin_url
+
+        if Dir.exist?(new_checkout_dir)
+          raise "Can't rename #{old_checkout_dir} to #{new_checkout_dir} because it already exists"
+        end
+
+        puts "mv #{old_checkout_dir} #{new_checkout_dir}"
+        File.rename old_checkout_dir, new_checkout_dir
+      end
+
+      puts "rm #{BARE_DIR}/full_name/#{other_full_name}"
+      File.unlink "#{BARE_DIR}/full_name/#{other_full_name}"
+    end
+  end
+end
+
+# eof

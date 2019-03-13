@@ -12,11 +12,15 @@
   # – if current branch is master, AND checkout is clean, then merge
   # – otherwise warn
 
+$: << "lib"
+
 require 'fileutils'
 require 'find'
 require 'json'
 require 'rosarium'
 require 'tempfile'
+
+require 'git-merge-with-stash'
 
 BARE_DIR = './var/github'
 CHECKOUT_DIR = './var/checkout'
@@ -50,24 +54,26 @@ def update_local(id, full_names)
     checkout_dir: checkout_dir,
   }
 
-  puts "#{bare_dir} -> #{checkout_dir}"
+  begin
+    try_update_local(bare_dir, checkout_dir, full_name, result)
+  rescue Exception => e
+    result.merge(status: :error, error: e)
+  end
+end
 
+
+def try_update_local(bare_dir, checkout_dir, full_name, result)
   if Dir.exist? checkout_dir
     skip_reasons = []
     skip_reasons << "it's not on master" unless is_master?(checkout_dir)
-    skip_reasons << "it's not clean" unless is_clean?(checkout_dir)
 
     if skip_reasons.empty?
-      pid = Process.spawn("git", "pull", "--ff-only", chdir: checkout_dir)
-      Process.wait pid
-      $?.success? or raise "git pull failed"
-      puts "OK: #{checkout_dir} pulled"
+      GitMergeWithStash.run(checkout_dir)
       result[:status] = :pulled
     else
       pid = Process.spawn("git", "fetch", chdir: checkout_dir)
       Process.wait pid
       $?.success? or raise "git fetch failed"
-      puts "WARNING: #{checkout_dir} only fetched, not merged, because #{skip_reasons.join " and "}"
       result[:status] = :fetched
       result[:skip_reasons] = skip_reasons
     end
@@ -79,10 +85,8 @@ def update_local(id, full_names)
 
     system "git", "clone", "--reference", bare_dir, origin_url, tmp_dir
     $?.success? or raise "git clone failed"
-    system "ls", "-al", File.dirname(checkout_dir)
     File.rename tmp_dir, checkout_dir
 
-    puts "OK: #{checkout_dir} cloned"
     { status: :cloned }
     result[:status] = :cloned
   end
@@ -101,7 +105,6 @@ Find.find("#{BARE_DIR}/full_name").each do |full_name_dir|
   end
 
   full_name = full_name_dir.sub "#{BARE_DIR}/full_name/", ""
-  puts full_name
 
   if config['local_checkout']['full_name_match'].any? {|re| full_name.match re}
     t = to_do_by_id[id] ||= { id: File.basename(id), full_names: [] }
@@ -117,7 +120,9 @@ promises = to_do_by_id.values.map do |v|
   end
 end
 
+Rosarium::Promise.all_settled(promises).value!
 all = Rosarium::Promise.all(promises).value!
+Rosarium::EXECUTOR.wait_until_idle
 
 puts ""
 
@@ -129,9 +134,18 @@ end
 
 puts "" if all.any? {|r| r[:skip_reasons]}
 
+all.each do |r|
+  if r[:status] == :error
+    puts "#{r[:checkout_dir]} : #{r[:error]}"
+  end
+end
+
+puts "" if all.any? {|r| r[:error]}
+
 cloned_count = all.count {|r| r[:status] == :cloned }
 pulled_count = all.count {|r| r[:status] == :pulled }
 fetched_count = all.count {|r| r[:status] == :fetched }
-puts "#{cloned_count} cloned, #{pulled_count} pulled, #{fetched_count} fetched"
+error_count = all.count {|r| r[:status] == :error }
+puts "#{cloned_count} cloned, #{pulled_count} pulled, #{fetched_count} fetched, #{error_count} failed"
 
 # eof
