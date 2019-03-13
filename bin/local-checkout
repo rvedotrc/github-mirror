@@ -97,18 +97,42 @@ end
 to_do_by_id = {}
 config = JSON.parse(IO.read 'etc/github-mirror.json')
 
-Find.find("#{BARE_DIR}/full_name").each do |full_name_dir|
-  id = begin
-    File.readlink full_name_dir
-  rescue Errno::EINVAL
-    next
+if ARGV.empty?
+  Find.find("#{BARE_DIR}/full_name").each do |full_name_dir|
+    id = begin
+      File.readlink full_name_dir
+    rescue Errno::EINVAL
+      next
+    end
+
+    full_name = full_name_dir.sub "#{BARE_DIR}/full_name/", ""
+
+    if config['local_checkout']['full_name_match'].any? {|re| full_name.match re}
+      t = to_do_by_id[id] ||= { id: File.basename(id), full_names: [] }
+      t[:full_names] << full_name
+    end
   end
+else
+  repositories = JSON.parse(IO.read "var/repositories.json")
 
-  full_name = full_name_dir.sub "#{BARE_DIR}/full_name/", ""
+  ARGV.each do |what|
+    re_what = Regexp.new("^(?:#{ Regexp.new(what) })$")
+    re_zendesk_what = Regexp.new("^zendesk/(?:#{ Regexp.new(what) })$")
 
-  if config['local_checkout']['full_name_match'].any? {|re| full_name.match re}
-    t = to_do_by_id[id] ||= { id: File.basename(id), full_names: [] }
-    t[:full_names] << full_name
+    repos = repositories.select do |r|
+      re_what === r['full_name'] or re_zendesk_what === r['full_name']
+    end
+
+    repos.each do |repo|
+      id = "var/github/id/" + repos.first['id'].to_s
+      full_name = repos.first['full_name']
+      t = to_do_by_id[id] ||= { id: File.basename(id), full_names: [] }
+      t[:full_names] << full_name unless t[:full_names].include? full_name
+    end
+
+    if repos.empty?
+      puts "No repositories matched #{what.inspect}"
+    end
   end
 end
 
