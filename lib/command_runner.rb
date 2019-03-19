@@ -9,12 +9,13 @@ class CommandRunner
           out: log.fileno,
           err: log.fileno,
         )
-        rc = system *args
+        system *args
+        rc = $?
         log.rewind
 
         result = OpenStruct.new(status: rc, log: log.read)
         result.define_singleton_method(:success?) do
-          status.success?
+          rc.success?
         end
         result
       end
