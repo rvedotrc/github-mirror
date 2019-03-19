@@ -104,17 +104,22 @@ to_do_by_id = {}
 config = JSON.parse(IO.read 'etc/github-mirror.json')
 
 if ARGV.empty?
+  repositories = JSON.parse(IO.read "var/repositories.json")
+
   Find.find("#{BARE_DIR}/full_name").each do |full_name_dir|
     id = begin
-      File.readlink full_name_dir
-    rescue Errno::EINVAL
-      next
-    end
+           File.basename(File.readlink(full_name_dir))
+         rescue Errno::EINVAL
+           next
+         end
+
+    repo = repositories.find {|r| r['id'].to_s == id}
+    repo or next
 
     full_name = full_name_dir.sub "#{BARE_DIR}/full_name/", ""
 
     if config['local_checkout']['full_name_match'].any? {|re| full_name.match re}
-      t = to_do_by_id[id] ||= { id: File.basename(id), full_names: [] }
+      t = to_do_by_id[id] ||= { id: id, full_names: [] }
       t[:full_names] << full_name
     end
   end
@@ -130,9 +135,9 @@ else
     end
 
     repos.each do |repo|
-      id = "var/github/id/" + repos.first['id'].to_s
+      id = repos.first['id'].to_s
       full_name = repos.first['full_name']
-      t = to_do_by_id[id] ||= { id: File.basename(id), full_names: [] }
+      t = to_do_by_id[id] ||= { id: id, full_names: [] }
       t[:full_names] << full_name unless t[:full_names].include? full_name
     end
 
