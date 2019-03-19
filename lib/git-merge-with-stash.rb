@@ -1,7 +1,7 @@
 require 'ostruct'
 require 'tempfile'
 
-require 'command-runner'
+require 'command_runner'
 
 class GitMergeWithStash
   def self.run(dir)

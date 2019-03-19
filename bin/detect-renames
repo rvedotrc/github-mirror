@@ -11,7 +11,7 @@ require 'json'
 require 'set'
 require 'tempfile'
 
-require 'command-runner'
+require 'command_runner'
 
 def ensure_remote_origin_url(git_dir, wanted_remote_origin_url)
   config_item = 'remote.origin.url'

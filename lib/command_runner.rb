@@ -22,7 +22,7 @@ class CommandRunner
 
     def do_system!(*args)
       result = do_system *args
-      
+
       unless result.status.success?
         raise CommandFailedException, result
       end
