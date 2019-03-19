@@ -55,17 +55,19 @@ def update_local(id, full_names)
   }
 
   begin
-    try_update_local(bare_dir, checkout_dir, full_name, result)
+    try_update_local(bare_dir, checkout_dir, full_name, result, id)
   rescue Exception => e
     result.merge(status: :error, error: e)
   end
 end
 
-
-def try_update_local(bare_dir, checkout_dir, full_name, result)
+def try_update_local(bare_dir, checkout_dir, full_name, result, id)
   if Dir.exist? checkout_dir
     skip_reasons = []
     skip_reasons << "it's not on master" unless is_master?(checkout_dir)
+
+    system 'git', 'config', 'github.id', id, chdir: checkout_dir
+    $?.success? or raise "git config failed"
 
     if skip_reasons.empty?
       GitMergeWithStash.run(checkout_dir)
@@ -85,6 +87,10 @@ def try_update_local(bare_dir, checkout_dir, full_name, result)
 
     system "git", "clone", "--reference", bare_dir, origin_url, tmp_dir
     $?.success? or raise "git clone failed"
+
+    system 'git', 'config', 'github.id', id, chdir: tmp_dir
+    $?.success? or raise "git config failed"
+
     File.rename tmp_dir, checkout_dir
 
     { status: :cloned }
