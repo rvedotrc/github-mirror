@@ -39,7 +39,7 @@ def read_tree(tree_file)
 end
 
 def make_tree(id_dir, default_branch, tree_file)
-  default_branch or raise
+  default_branch or raise "No default branch for #{id_dir}"
   tmp_tree = "#{tree_file}.tmp"
 
   File.open(tmp_tree, 'w') do |f|
@@ -87,7 +87,11 @@ end
 promises = Dir.glob("#{BARE_DIR}/id/*").map do |id_dir|
   id = File.basename id_dir
   Rosarium::Promise.execute do
-    ensure_tree_fresh id_dir, default_branch_by_id[id]
+    if default_branch_by_id.key?(id)
+      ensure_tree_fresh id_dir, default_branch_by_id[id]
+    else
+      { id_dir: id_dir, status: :should_be_deleted }
+    end
   end
 end
 

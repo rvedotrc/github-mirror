@@ -43,7 +43,7 @@ def is_clean?(checkout_dir)
 end
 
 def update_local(id, full_names)
-  raise "!=1 full_names" if full_names.length != 1
+  raise "!=1 full_names for #{id} (#{full_names.inspect})" if full_names.length != 1
   full_name = full_names.first
   puts "Mirroring #{id} for #{full_name}"
 
