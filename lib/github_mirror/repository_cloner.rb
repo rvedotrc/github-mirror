@@ -1,6 +1,3 @@
-require 'fileutils'
-require 'tempfile'
-
 class GithubMirror
   class RepositoryCloner
 
@@ -31,6 +28,7 @@ class GithubMirror
     def clone
       puts "clone #{full_name} into #{target}"
 
+      require 'fileutils'
       FileUtils.mkdir_p canonical_dir
       tmp = target + ".tmp"
       FileUtils.rm_rf(target)
@@ -61,6 +59,7 @@ class GithubMirror
       require 'github_mirror/git_command_runner'
       GitCommandRunner.run!("git", "--git-dir", target, "config", "remote.origin.url", ssh_url)
 
+      require 'tempfile'
       Tempfile.open do |t|
         Process.wait(Process.spawn(
           "git", "--git-dir", target, "fetch", "--prune",

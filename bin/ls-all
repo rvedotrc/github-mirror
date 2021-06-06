@@ -19,6 +19,7 @@ repos.each do |repo|
   repo_dir = "#{prefix}/#{repo["full_name"]}"
 
   begin
+    require 'json'
     JSON.parse(IO.read("#{repo_dir}/tree.json")).each do |file|
       next if file_pattern && !file["path"].match(file_pattern)
 
@@ -28,5 +29,5 @@ repos.each do |repo|
     # meh
   end
 end
-        
+
 

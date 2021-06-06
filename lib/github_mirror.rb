@@ -1,5 +1,3 @@
-require 'json'
-
 class GithubMirror
 
   CONFIG_FILE = 'etc/github-mirror.json'
@@ -30,6 +28,7 @@ class GithubMirror
   private
 
   def config
+    require 'json'
     @config ||= JSON.parse(IO.read(CONFIG_FILE))
   end
 

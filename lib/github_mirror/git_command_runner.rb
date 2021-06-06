@@ -7,6 +7,7 @@ class GithubMirror
   class GitCommandRunner
 
     def self.run(*args)
+      require 'tempfile'
       Tempfile.open do |out|
         Tempfile.open do |err|
           args = args.dup

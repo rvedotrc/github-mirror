@@ -17,6 +17,8 @@ class GithubMirror
     def each
       raise unless block_given?
 
+      require 'json'
+
       return if with_fresh_file do |f|
         JSON.load(f).each do |v|
           yield v

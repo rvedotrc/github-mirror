@@ -18,7 +18,6 @@ require 'fileutils'
 require 'find'
 require 'json'
 require 'rosarium'
-require 'tempfile'
 
 require 'git-merge-with-stash'
 
@@ -31,6 +30,7 @@ def is_master?(checkout_dir)
 end
 
 def is_clean?(checkout_dir)
+  require 'tempfile'
   output = Tempfile.open do |f|
     pid = Process.spawn("git", "status", "--porcelain", chdir: checkout_dir, out: f.fileno)
     Process.wait pid

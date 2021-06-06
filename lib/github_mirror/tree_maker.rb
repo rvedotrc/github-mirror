@@ -40,6 +40,9 @@ class GithubMirror
       tree_file = "#{canonical_dir}/tree.json"
       puts "Saving #{tree.count} tree entries to #{tree_file}"
 
+      require 'json'
+      require 'tempfile'
+
       Tempfile.open(tree_file) do |f|
         f.puts(JSON.generate(tree))
         f.flush

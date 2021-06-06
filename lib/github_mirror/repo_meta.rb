@@ -55,6 +55,7 @@ class GithubMirror
     end
 
     def load
+      require 'json'
       @data = JSON.parse(IO.read(meta_path))
       @dirty = false
     rescue Errno::ENOENT
@@ -63,6 +64,9 @@ class GithubMirror
     end
 
     def save
+      require 'json'
+      require 'tempfile'
+
       Tempfile.open(meta_path) do |f|
         f.puts(JSON.generate(data))
         f.flush

@@ -1,10 +1,10 @@
 require 'ostruct'
-require 'tempfile'
 
 require 'command_runner'
 
 class GitMergeWithStash
   def self.run(dir)
+    require 'tempfile'
     status = Tempfile.open do |f|
       system 'git status --porcelain', chdir: dir, out: f.fileno
       f.rewind

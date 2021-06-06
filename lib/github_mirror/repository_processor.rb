@@ -1,6 +1,3 @@
-require 'fileutils'
-require 'github_mirror/repository_cloner'
-
 class GithubMirror
   class RepositoryProcessor
 
@@ -17,17 +14,18 @@ class GithubMirror
     end
 
     def process
+      require 'fileutils'
       FileUtils.mkdir_p(canonical_dir)
 
       require 'github_mirror/repo_meta'
       meta = GithubMirror::RepoMeta.new(canonical_dir)
+      meta.set(:github_info, :full_name, full_name)
 
+      require 'github_mirror/repository_cloner'
       RepositoryCloner.new(repo.ssh_url, repo.pushed_at, canonical_dir, full_name, meta).mirror
 
       require 'github_mirror/tree_maker'
       TreeMaker.new(canonical_dir, meta, repo.default_branch).update
-
-      meta.set(:github_info, :full_name, full_name)
 
       meta.flush
     end

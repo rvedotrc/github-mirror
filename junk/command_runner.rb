@@ -1,8 +1,7 @@
-require 'tempfile'
-
 class CommandRunner
   class << self
     def do_system(*args)
+      require 'tempfile'
       Tempfile.open do |log|
         args << {} unless args.last.is_a? Hash
         args.last.merge!(
