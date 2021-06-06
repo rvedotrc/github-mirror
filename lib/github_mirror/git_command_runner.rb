@@ -1,3 +1,8 @@
+# There's actually nothing specific to git about this.
+# This is just a wrapper around Process.spawn, where
+# stdin is /dev/null, and it turns stdout and stderr as
+# strings, and also $?.
+
 class GithubMirror
   class GitCommandRunner
 

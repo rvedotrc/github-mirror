@@ -1,6 +1,14 @@
 require 'rosarium'
 require 'rosarium/ensure'
 
+# Usage:
+#   limiter = Rosarium::PromiseConcurrencyLimiter.new(5)
+#   promise = limiter.promise { make_a_promise }
+#
+# Ensures that at most (e.g.) 5 promises are created (and therefore
+# potentially execute) at a time.  Probably only really useful if
+# the make_a_promise is actually a call to Rosarium::Promise.execute .
+
 class Rosarium::PromiseConcurrencyLimiter
 
   def initialize(max)
@@ -39,6 +47,7 @@ class Rosarium::PromiseConcurrencyLimiter
   end
 
   def start(job)
+    # Could also rescue here and generate a rejected promise
     promise = job[:promise_maker].call
 
     promise.ensure do

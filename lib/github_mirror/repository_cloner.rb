@@ -4,13 +4,14 @@ require 'tempfile'
 class GithubMirror
   class RepositoryCloner
 
-    attr_reader :ssh_url, :pushed_at, :canonical_dir, :full_name
+    attr_reader :ssh_url, :pushed_at, :canonical_dir, :full_name, :meta
 
-    def initialize(ssh_url, pushed_at, canonical_dir, full_name)
+    def initialize(ssh_url, pushed_at, canonical_dir, full_name, meta)
       @ssh_url = ssh_url
       @pushed_at = pushed_at
       @canonical_dir = canonical_dir
       @full_name = full_name
+      @meta = meta
     end
 
     def mirror
@@ -43,16 +44,16 @@ class GithubMirror
 
       File.rename tmp, target
 
-      with_pushed_at { }
-
-      true
+      meta.set("last_fetched_at", pushed_at)
     end
 
     def fetch
-      with_pushed_at do
-        puts "git fetch #{full_name} => #{canonical_dir}"
-        do_fetch
-      end
+      return if meta.get(:last_fetched_at) == pushed_at
+
+      puts "git fetch #{full_name} => #{canonical_dir}"
+      do_fetch
+
+      meta.set("last_fetched_at", pushed_at)
     end
 
     def do_fetch
@@ -77,24 +78,6 @@ class GithubMirror
 
         raise "git fetch #{full_name} failed: #{log}"
       end
-    end
-
-    def with_pushed_at
-      pushed_at_file = "#{canonical_dir}/pushed_at"
-
-      already_done = begin
-                       IO.read(pushed_at_file).chomp
-                     rescue Errno::ENOENT
-                     end
-
-      if already_done == pushed_at
-        return false
-      end
-
-      yield
-
-      IO.write(pushed_at_file, pushed_at+"\n")
-      true
     end
 
   end

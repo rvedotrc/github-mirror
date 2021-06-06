@@ -1,5 +1,11 @@
 require 'json'
 
+# Apply filesystem cacheing to the results of an enumerator.
+# If the cache is fresh, thing.each iterates over each cached
+# result (as serialized/deserialized using JSON). Otherwise,
+# calls the underlying enumerator, generating a new set of
+# cached results, renaming it into place on completion.
+
 class GithubMirror
   class CacheingThing
     def initialize(filename, cutoff_time, &block)
@@ -37,6 +43,8 @@ class GithubMirror
 
     private
 
+    # If the file exists and is fresh, then yields the filehandle and returns true.
+    # otherwise returns false.
     def with_fresh_file
       f = begin
         File.open(@filename, 'r')

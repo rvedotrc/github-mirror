@@ -1,9 +1,0 @@
-#!/bin/bash
-
-set -eux
-
-./bin/mirror
-./bin/detect-renames
-./bin/detect-deletions
-./bin/create-trees
-./bin/local-checkout
