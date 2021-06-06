@@ -1,11 +1,6 @@
 #!/usr/bin/env ruby
 
-begin
-  require 'rosarium'
-rescue LoadError
-  exec "with-ruby - bundle exec " + $0
-end
-
+require 'rosarium'
 require 'json'
 
 def make_hash
@@ -23,7 +18,12 @@ mutex = Mutex.new
 all = Rosarium::Promise.all(
   trees.sort.map do |dir|
     Rosarium::Promise.execute do
-      tree = JSON.parse(IO.read("#{dir}/tree.json"))
+      tree = begin
+               JSON.parse(IO.read("#{dir}/tree.json"))
+             rescue Errno::ENOENT
+               nil
+             end
+      tree or next
 
       these_counts = make_hash
       these_sizes = make_hash
@@ -31,7 +31,7 @@ all = Rosarium::Promise.all(
       tree.each do |entry|
         case entry["type"]
         when "blob"
-          # p entry.keys.sort # hash mode path size type
+          # p entry.keys.sort # hash mode path size type
 
           name = File.basename(entry["path"])
           ext = if name.include?(".") && !name.start_with?(".")
