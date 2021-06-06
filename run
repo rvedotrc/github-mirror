@@ -1,2 +1,7 @@
 #!/bin/sh
-exec with-ruby - bundle exec ./bin/mirror
+
+if [ $# = 0 ] ; then
+  exec with-ruby - bundle exec ./bin/mirror
+else
+  exec with-ruby - bundle exec "$@"
+fi
