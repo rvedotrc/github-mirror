@@ -21,10 +21,10 @@ class GithubMirror
 
     basenames = filtered_repos.map do |repo|
       dir = "#{CLONE_BASE_DIR}/full_name/#{repo.full_name}"
-      Dir.entries(dir).sort
+      Dir.entries(dir).sort - [".", ".."]
     end
 
-    p basenames.uniq
+    p basenames.group_by(&:itself).to_h.transform_values(&:count)
   end
 
   private

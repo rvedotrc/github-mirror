@@ -57,6 +57,10 @@ class GithubMirror
     end
 
     def do_fetch
+      # In case it's been renamed
+      require 'github_mirror/git_command_runner'
+      GitCommandRunner.run!("git", "--git-dir", target, "config", "remote.origin.url", ssh_url)
+
       Tempfile.open do |t|
         Process.wait(Process.spawn(
           "git", "--git-dir", target, "fetch", "--prune",
