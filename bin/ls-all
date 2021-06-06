@@ -1,0 +1,32 @@
+#!/usr/bin/env ruby
+
+require 'json'
+
+repo_pattern = ARGV.shift
+file_pattern = ARGV.shift
+
+repo_pattern = Regexp.new(repo_pattern) if repo_pattern
+file_pattern = Regexp.new(file_pattern) if file_pattern
+
+repos = JSON.parse(IO.read("var/repositories.json"))
+
+prefix = "var/github/full_name"
+
+repos.each do |repo|
+  full_name = repo["full_name"]
+  next if repo_pattern && !full_name.match(repo_pattern)
+
+  repo_dir = "#{prefix}/#{repo["full_name"]}"
+
+  begin
+    JSON.parse(IO.read("#{repo_dir}/tree.json")).each do |file|
+      next if file_pattern && !file["path"].match(file_pattern)
+
+      puts "#{repo_dir}/checkout/#{file["path"]}"
+    end
+  rescue Errno::ENOENT
+    # meh
+  end
+end
+        
+

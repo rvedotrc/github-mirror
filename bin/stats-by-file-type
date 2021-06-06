@@ -1,0 +1,77 @@
+#!/usr/bin/env ruby
+
+begin
+  require 'rosarium'
+rescue LoadError
+  exec "with-ruby - bundle exec " + $0
+end
+
+require 'json'
+
+def make_hash
+  Hash.new do |h, k|
+    h[k] = 0
+  end
+end
+
+trees = Dir.glob("var/github/full_name/*/*")
+
+counts = make_hash
+sizes = make_hash
+mutex = Mutex.new
+
+all = Rosarium::Promise.all(
+  trees.sort.map do |dir|
+    Rosarium::Promise.execute do
+      tree = JSON.parse(IO.read("#{dir}/tree.json"))
+
+      these_counts = make_hash
+      these_sizes = make_hash
+
+      tree.each do |entry|
+        case entry["type"]
+        when "blob"
+          # p entry.keys.sort # hash mode path size type
+
+          name = File.basename(entry["path"])
+          ext = if name.include?(".") && !name.start_with?(".")
+                  name.split('.').last.downcase
+                else
+                  "NONE"
+                end
+          ext = "LONG" if ext.length > 5
+
+          these_counts[ext] += 1
+          these_sizes[ext] += entry["size"]
+        when "tree"
+          # i.e. a dir
+        when "commit"
+          # ?
+        else
+          p entry
+        end
+      end
+
+      mutex.synchronize do
+        these_sizes.each { |k, v| sizes[k] += v }
+        these_counts.each { |k, v| counts[k] += v }
+      end
+    end
+  end
+)
+
+all.value!
+
+require 'tempfile'
+stats_file = "var/stats-by-file-type.txt"
+
+Tempfile.open(stats_file) do |f|
+  counts.keys.sort.each do |ext|
+    f.puts "%s\t%s\t%s" % [ counts[ext], sizes[ext], ext ]
+  end
+  f.chmod 0o644
+  f.flush
+  File.rename f.path, stats_file
+end
+
+puts "Wrote " + stats_file

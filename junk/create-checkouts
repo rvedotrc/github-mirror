@@ -1,0 +1,92 @@
+#!/usr/bin/env ruby
+# vi: set ts=2 sw=2 :
+
+# Given bare mirrors, create local non-bare checkouts of the default branch
+
+require 'fileutils'
+require 'find'
+require 'json'
+require 'rosarium'
+
+default_branch_by_id = JSON.parse(IO.read "var/repositories.json").map do |r|
+  [ r["id"].to_s, r["default_branch"] ]
+end.to_h
+
+BARE_DIR = './var/github'
+
+def do_checkout(id_dir, default_branch, checkout, t_pushed_at)
+  default_branch or raise "No default branch for #{id_dir}"
+  puts id_dir
+
+  if !File.exist?(checkout)
+    origin_url = `cd #{id_dir}/mirror && git config --get remote.origin.url`.chomp
+
+    tmp = checkout + ".tmp"
+    FileUtils.rm_rf tmp if File.exist?(tmp)
+
+    pid = Process.spawn(
+      "git", "clone", "--reference", "./mirror", origin_url, "./checkout.tmp",
+      chdir: id_dir,
+    )
+    Process.wait(pid)
+    unless $?.success?
+      return { id_dir: id_dir, status: :error }
+    end
+
+    File.rename tmp, checkout
+  else
+    pid = Process.spawn(
+      "git", "pull",
+      chdir: checkout,
+    )
+    Process.wait(pid)
+    unless $?.success?
+      return { id_dir: id_dir, status: :error }
+    end
+  end
+
+  File.utime t_pushed_at + 1, t_pushed_at + 1, checkout
+
+  { id_dir: id_dir, status: :success }
+end
+
+def mtime_of(file)
+  begin
+    File.stat(file).mtime.to_i
+  rescue Errno::ENOENT
+    0
+  end
+end
+
+def ensure_fresh(id_dir, default_branch)
+  checkout = "#{id_dir}/checkout"
+  pushed_at = "#{id_dir}/pushed_at"
+
+  t_pushed_at = mtime_of(pushed_at)
+
+  if mtime_of(checkout) <= t_pushed_at
+    do_checkout(id_dir, default_branch, checkout, t_pushed_at)
+  else
+    { id_dir: id_dir, status: :fresh, checkout_mtime: mtime_of(checkout), push_time: t_pushed_at }
+  end
+end
+
+promises = Dir.glob("#{BARE_DIR}/id/*").map do |id_dir|
+  id = File.basename id_dir
+  Rosarium::Promise.execute do
+    if default_branch_by_id.key?(id)
+      ensure_fresh id_dir, default_branch_by_id[id]
+    else
+      { id_dir: id_dir, status: :should_be_deleted }
+    end
+  end
+end
+
+all = Rosarium::Promise.all(promises).value!
+
+all.each do |r|
+  p r
+  p r if r[:status] == :error
+end
+
+# eof

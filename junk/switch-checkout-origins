@@ -1,0 +1,18 @@
+#!/usr/bin/env ruby
+
+require 'json'
+
+JSON.parse(IO.read("var/repositories.json")).each do |repo|
+  id = repo["id"]
+  id_dir = "var/github/id/#{id}"
+  checkout_dir = "#{id_dir}/checkout"
+
+  if Dir.exist?(checkout_dir)
+    url = repo["ssh_url"]
+    puts checkout_dir
+
+    system "git", "remote", "rm", "origin", chdir: checkout_dir
+    system "git", "remote", "add", "origin", url, chdir: checkout_dir
+    $?.success? or puts "failed in #{checkout_dir}"
+  end
+end

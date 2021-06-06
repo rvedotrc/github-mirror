@@ -1,0 +1,2 @@
+#!/bin/sh
+exec with-ruby - bundle exec ./bin/mirror
