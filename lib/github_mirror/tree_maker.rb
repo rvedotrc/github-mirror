@@ -1,6 +1,8 @@
 class GithubMirror
   class TreeMaker
 
+    TREE_FILE = 'tree.json'
+
     def initialize(canonical_dir, meta, default_branch)
       @canonical_dir = canonical_dir
       @meta = meta
@@ -14,7 +16,7 @@ class GithubMirror
       return if last_fetched_at.nil?
       return if last_fetched_at == meta.get(:tree, :last_updated_at)
 
-      git_dir = "#{canonical_dir}/mirror"
+      git_dir = "#{canonical_dir}/#{MIRROR_DIR}"
 
       require 'github_mirror/git_command_runner'
       answer = GitCommandRunner.run("git", "--git-dir", git_dir, "show-ref", "refs/heads/#{default_branch}")
@@ -37,7 +39,7 @@ class GithubMirror
         { mode: mode, type: type, hash: hash, size: size, path: path }
       end
 
-      tree_file = "#{canonical_dir}/tree.json"
+      tree_file = "#{canonical_dir}/#{TREE_FILE}"
       puts "Saving #{tree.count} tree entries to #{tree_file}"
 
       require 'json'

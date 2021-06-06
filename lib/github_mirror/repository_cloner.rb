@@ -22,7 +22,7 @@ class GithubMirror
     private
 
     def target
-      "#{canonical_dir}/mirror"
+      "#{canonical_dir}/#{MIRROR_DIR}"
     end
 
     def clone

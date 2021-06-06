@@ -1,0 +1,61 @@
+class GithubMirror
+  class CheckoutMaker
+
+    attr_reader :ssh_url, :canonical_dir, :meta, :default_branch
+
+    def initialize(ssh_url, canonical_dir, meta, default_branch)
+      @ssh_url = ssh_url
+      @canonical_dir = canonical_dir
+      @meta = meta
+      @default_branch = default_branch
+
+      @mirror_dir = File.join(canonical_dir, MIRROR_DIR)
+      @checkout_dir = File.join(canonical_dir, CHECKOUT_DIR)
+    end
+
+    def mirror
+      t = meta.get(:mirror, :last_fetched_at)
+      t or raise
+
+      if !File.exist?(@checkout_dir)
+        clone
+        meta.set(:checkout, :last_pulled_at, t)
+      else
+        if meta.get(:checkout, :last_pulled_at) != t
+          pull
+          meta.set(:checkout, :last_pulled_at, t)
+        end
+      end
+    end
+
+    private
+
+    attr_reader :mirror_dir, :checkout_dir
+
+    def clone
+      system(
+        "git",
+        "clone",
+        "--reference", MIRROR_DIR,
+        @ssh_url,
+        CHECKOUT_DIR,
+        chdir: canonical_dir,
+      )
+      $?.success? or raise
+    end
+
+    def pull
+      # In case it's been renamed
+      require 'github_mirror/git_command_runner'
+      GitCommandRunner.run!("git", "config", "remote.origin.url", ssh_url, chdir: @checkout_dir)
+
+      GitCommandRunner.run!("git", "fetch", chdir: @checkout_dir)
+
+      # In case the default branch has changed
+      GitCommandRunner.run!("git", "checkout", @default_branch.sub("refs/heads/", ""))
+
+      GitCommandRunner.run!("git", "merge")
+    end
+
+  end
+end

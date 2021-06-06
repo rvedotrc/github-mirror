@@ -3,6 +3,8 @@ require 'json'
 class GithubMirror
   class RepoMeta
 
+    META_FILE = 'meta.json'
+
     def initialize(id_dir)
       @id_dir = id_dir
       load
@@ -25,8 +27,10 @@ class GithubMirror
         h[k.to_s] ||= {}
       end
 
-      hash[final.to_s] = value
-      @dirty = true
+      if hash[final.to_s] != value
+        hash[final.to_s] = value
+        @dirty = true
+      end
     end
 
     def delete(*path)
@@ -51,7 +55,7 @@ class GithubMirror
     attr_reader :id_dir, :data
 
     def meta_path
-      "#{id_dir}/meta.json"
+      "#{id_dir}/#{META_FILE}"
     end
 
     def load

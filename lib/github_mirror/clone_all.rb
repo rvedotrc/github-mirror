@@ -12,6 +12,7 @@ class GithubMirror
       require 'github_mirror/repository_processor'
 
       repos.each do |repo|
+        puts repo.full_name
         GithubMirror::RepositoryProcessor.new(clone_base_dir, repo).process
       end
     end

@@ -3,6 +3,8 @@ class GithubMirror
   CONFIG_FILE = 'etc/github-mirror.json'
   REPOSITORIES_FILE = 'var/repositories.json'
   CLONE_BASE_DIR = 'var/github'
+  MIRROR_DIR = "mirror"
+  CHECKOUT_DIR = "checkout"
 
   RepoSummary = Struct.new(:id, :full_name, :owner_name, :ssh_url, :pushed_at, :default_branch)
 
