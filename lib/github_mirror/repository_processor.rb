@@ -24,7 +24,10 @@ class GithubMirror
 
       RepositoryCloner.new(repo.ssh_url, repo.pushed_at, canonical_dir, full_name, meta).mirror
 
-      meta.set(:last_fetched_at, repo.pushed_at)
+      require 'github_mirror/tree_maker'
+      TreeMaker.new(canonical_dir, meta, repo.default_branch).update
+
+      meta.set(:github_info, :full_name, full_name)
 
       meta.flush
     end

@@ -6,7 +6,7 @@ class GithubMirror
   REPOSITORIES_FILE = 'var/repositories.json'
   CLONE_BASE_DIR = 'var/github'
 
-  RepoSummary = Struct.new(:id, :full_name, :owner_name, :ssh_url, :pushed_at)
+  RepoSummary = Struct.new(:id, :full_name, :owner_name, :ssh_url, :pushed_at, :default_branch)
 
   def run
     filtered_repos = repos.select do |repo|
@@ -68,6 +68,7 @@ class GithubMirror
                      s.owner_name = repo["owner"]["login"]
                      s.ssh_url = repo["ssh_url"]
                      s.pushed_at = repo["pushed_at"]
+                     s.default_branch = repo["default_branch"]
                    end
                  end
                end

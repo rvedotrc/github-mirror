@@ -9,8 +9,10 @@ class GithubMirror
     end
 
     def get(*path)
+      raise if path.empty?
+
       path.reduce(data) do |h, k|
-        h[k.to_s]
+        h && h[k.to_s]
       end
     end
 
@@ -25,6 +27,19 @@ class GithubMirror
 
       hash[final.to_s] = value
       @dirty = true
+    end
+
+    def delete(*path)
+      final = path.pop
+
+      parent = path.reduce(data) do |h, k|
+        h && h[k.to_s]
+      end
+
+      if parent
+        parent.delete(final.to_s)
+        @dirty = true
+      end
     end
 
     def flush

@@ -44,16 +44,16 @@ class GithubMirror
 
       File.rename tmp, target
 
-      meta.set("last_fetched_at", pushed_at)
+      meta.set(:mirror, :last_fetched_at, pushed_at)
     end
 
     def fetch
-      return if meta.get(:last_fetched_at) == pushed_at
+      return if meta.get(:mirror, :last_fetched_at) == pushed_at
 
       puts "git fetch #{full_name} => #{canonical_dir}"
       do_fetch
 
-      meta.set("last_fetched_at", pushed_at)
+      meta.set(:mirror, :last_fetched_at, pushed_at)
     end
 
     def do_fetch
