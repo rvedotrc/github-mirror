@@ -15,7 +15,7 @@ class GithubMirror
 
     def mirror
       t = meta.get(:mirror, :last_fetched_at)
-      t or raise
+      t or return
 
       if !File.exist?(@checkout_dir)
         clone
@@ -45,16 +45,17 @@ class GithubMirror
     end
 
     def pull
-      # In case it's been renamed
       require 'github_mirror/git_command_runner'
+
+      # In case it's been renamed
       GitCommandRunner.run!("git", "config", "remote.origin.url", ssh_url, chdir: @checkout_dir)
 
       GitCommandRunner.run!("git", "fetch", chdir: @checkout_dir)
 
       # In case the default branch has changed
-      GitCommandRunner.run!("git", "checkout", @default_branch.sub("refs/heads/", ""))
+      GitCommandRunner.run!("git", "checkout", default_branch.sub("refs/heads/", ""), chdir: @checkout_dir)
 
-      GitCommandRunner.run!("git", "merge")
+      GitCommandRunner.run!("git", "merge", chdir: @checkout_dir)
     end
 
   end
