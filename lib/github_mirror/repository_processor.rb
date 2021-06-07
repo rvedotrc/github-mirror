@@ -24,6 +24,7 @@ class GithubMirror
 
       require 'github_mirror/repository_cloner'
       RepositoryCloner.new(repo.ssh_url, repo.pushed_at, canonical_dir, full_name, meta, logger: @logger.nest('cloner ')).mirror
+
       require 'github_mirror/checkout_maker'
       CheckoutMaker.new(repo.ssh_url, canonical_dir, meta, repo.default_branch, logger: @logger.nest('checkout ')).mirror
 
