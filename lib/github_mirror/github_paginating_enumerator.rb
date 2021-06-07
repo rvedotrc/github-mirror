@@ -2,8 +2,8 @@ require 'github_api'
 
 # Patch a github api response to add lazy_each
 class Github::ResponseWrapper
-  def lazy_each(&block)
-    e = GithubMirror::GithubPaginatingEnumerator.new(self)
+  def lazy_each(logger:, &block)
+    e = GithubMirror::GithubPaginatingEnumerator.new(self, logger: logger)
     if block_given?
       e.each(&block)
     else
@@ -19,10 +19,11 @@ class GithubMirror
 
     include Enumerable
 
-    def initialize(first_page)
+    def initialize(first_page, logger:)
       @page = first_page
       @page_number = 0
       @index = 0
+      @logger = logger
     end
 
     def each
@@ -59,7 +60,7 @@ class GithubMirror
         @page = @page.next_page
         @page_number += 1
         @index = 0
-        puts "Now on page #{@page_number}"
+        @logger.puts "Now on page #{@page_number}"
       end
 
       raise StopIteration.new

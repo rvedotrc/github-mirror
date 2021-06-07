@@ -3,12 +3,13 @@ class GithubMirror
 
     attr_reader :ssh_url, :pushed_at, :canonical_dir, :full_name, :meta
 
-    def initialize(ssh_url, pushed_at, canonical_dir, full_name, meta)
+    def initialize(ssh_url, pushed_at, canonical_dir, full_name, meta, logger:)
       @ssh_url = ssh_url
       @pushed_at = pushed_at
       @canonical_dir = canonical_dir
       @full_name = full_name
       @meta = meta
+      @logger = logger
     end
 
     def mirror
@@ -26,7 +27,7 @@ class GithubMirror
     end
 
     def clone
-      puts "clone #{full_name} into #{target}"
+      @logger.puts "clone #{full_name} into #{target}"
 
       require 'fileutils'
       FileUtils.mkdir_p canonical_dir
@@ -48,7 +49,7 @@ class GithubMirror
     def fetch
       return if meta.get(:mirror, :last_fetched_at) == pushed_at
 
-      puts "git fetch #{full_name} => #{canonical_dir}"
+      @logger.puts "git fetch #{full_name} => #{canonical_dir}"
       do_fetch
 
       meta.set(:mirror, :last_fetched_at, pushed_at)
@@ -68,14 +69,14 @@ class GithubMirror
         ))
         t.rewind
 
-        puts(*t.each_line.map {|t| "#{full_name} : #{t}"})
+        t.each_line { |line| @logger.puts(line) }
         next if $?.success?
 
         t.rewind
         log = t.read
 
         if log.match(/\Afatal: Couldn't find remote ref HEAD\n*\z/)
-          puts "#{full_name} is an empty repository"
+          @logger.puts "#{full_name} is an empty repository"
           next
         end
 

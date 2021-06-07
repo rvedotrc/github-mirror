@@ -3,11 +3,12 @@ class GithubMirror
 
     attr_reader :ssh_url, :canonical_dir, :meta, :default_branch
 
-    def initialize(ssh_url, canonical_dir, meta, default_branch)
+    def initialize(ssh_url, canonical_dir, meta, default_branch, logger:)
       @ssh_url = ssh_url
       @canonical_dir = canonical_dir
       @meta = meta
       @default_branch = default_branch
+      @logger = logger
 
       @mirror_dir = File.join(canonical_dir, MIRROR_DIR)
       @checkout_dir = File.join(canonical_dir, CHECKOUT_DIR)

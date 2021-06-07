@@ -3,10 +3,11 @@ class GithubMirror
 
     TREE_FILE = 'tree.json'
 
-    def initialize(canonical_dir, meta, default_branch)
+    def initialize(canonical_dir, meta, default_branch, logger:)
       @canonical_dir = canonical_dir
       @meta = meta
       @default_branch = default_branch
+      @logger = logger
     end
 
     attr_reader :canonical_dir, :meta, :default_branch
@@ -40,7 +41,7 @@ class GithubMirror
       end
 
       tree_file = "#{canonical_dir}/#{TREE_FILE}"
-      puts "Saving #{tree.count} tree entries to #{tree_file}"
+      @logger.puts "Saving #{tree.count} tree entries to #{tree_file}"
 
       require 'json'
       require 'tempfile'

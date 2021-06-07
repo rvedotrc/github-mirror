@@ -5,8 +5,9 @@ class GithubMirror
 
     META_FILE = 'meta.json'
 
-    def initialize(id_dir)
+    def initialize(id_dir, logger:)
       @id_dir = id_dir
+      @logger = logger
       load
     end
 
@@ -61,6 +62,7 @@ class GithubMirror
     def load
       require 'json'
       @data = JSON.parse(IO.read(meta_path))
+      # @logger.puts "Loaded from #{meta_path}"
       @dirty = false
     rescue Errno::ENOENT
       @data = {}
@@ -70,6 +72,8 @@ class GithubMirror
     def save
       require 'json'
       require 'tempfile'
+
+      @logger.puts "Saving to #{meta_path}"
 
       Tempfile.open(meta_path) do |f|
         f.puts(JSON.generate(data))

@@ -8,10 +8,11 @@ require 'json'
 
 class GithubMirror
   class CacheingThing
-    def initialize(filename, cutoff_time, &block)
+    def initialize(filename, cutoff_time, logger:, &block)
       @filename = filename
       @cutoff_time = cutoff_time
       @block = block
+      @logger = logger
     end
 
     def each
@@ -56,9 +57,11 @@ class GithubMirror
 
       begin
         if f and f.stat.mtime > @cutoff_time
+          @logger.puts "Using fresh (#{(f.stat.mtime - @cutoff_time).to_i} sec old) file"
           yield f
           true
         else
+          @logger.puts "Querying repositories"
           false
         end
       ensure

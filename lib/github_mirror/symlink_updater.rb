@@ -1,9 +1,10 @@
 class GithubMirror
   class SymlinkUpdater
 
-    def initialize(repos, clone_base_dir)
+    def initialize(repos, clone_base_dir, logger:)
       @repos = repos
       @clone_base_dir = clone_base_dir
+      @logger = logger
     end
 
     attr_reader :repos, :clone_base_dir
@@ -19,18 +20,18 @@ class GithubMirror
       end.to_h
 
       (desired_symlinks.keys - existing_symlinks.keys).each do |k|
-        puts "ln -s #{k} #{desired_symlinks[k]}"
+        @logger.puts "ln -s #{k} #{desired_symlinks[k]}"
         File.symlink desired_symlinks[k], k
       end
 
       (existing_symlinks.keys - desired_symlinks.keys).each do |k|
-        puts "rm #{k}"
+        @logger.puts "rm #{k}"
         File.unlink k
       end
 
       (desired_symlinks.keys & existing_symlinks.keys).each do |k|
         if desired_symlinks[k] != existing_symlinks[k]
-          puts "ln -sf #{k} #{desired_symlinks[k]}"
+          @logger.puts "ln -sf #{k} #{desired_symlinks[k]}"
           File.unlink k
           File.symlink desired_symlinks[k], k
         end
