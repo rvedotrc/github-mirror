@@ -29,10 +29,10 @@ class GithubMirror
       end
 
       tmp = @filename + ".tmp"
+      i = 0
       File.open(tmp, 'w') do |f|
         f.print '['
         e = @block.call
-        i = 0
         e.each do |v|
           f.print ',' unless i == 0
           i += 1

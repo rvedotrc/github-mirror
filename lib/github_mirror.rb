@@ -12,22 +12,30 @@ class GithubMirror
     require 'github_mirror/prefixed_logger'
     @logger = GithubMirror::PrefixedLogger.new
 
-    filtered_repos = repos.select do |repo|
-      config['github']['allow_orgs'].include?(repo[:owner_name])
+    require 'github_mirror/clone_all'
+    cloner = GithubMirror::CloneAll.new(CLONE_BASE_DIR, logger: @logger.nest('clone-all '))
+
+    repos = []
+    promises = []
+
+    each_repo_summary do |repo|
+      repos << repo
+      promises << cloner.run(repo)
     end
 
-    require 'github_mirror/clone_all'
-    GithubMirror::CloneAll.new(filtered_repos, CLONE_BASE_DIR, logger: @logger.nest('clone-all ')).run
+    Rosarium::Promise.all(promises).value!
 
     require 'github_mirror/symlink_updater'
-    GithubMirror::SymlinkUpdater.new(filtered_repos, CLONE_BASE_DIR, logger: @logger.nest('symlink-updater ')).run
+    GithubMirror::SymlinkUpdater.new(repos, CLONE_BASE_DIR, logger: @logger.nest('symlink-updater ')).run
 
-    basenames = filtered_repos.map do |repo|
+    basenames = repos.map do |repo|
       dir = "#{CLONE_BASE_DIR}/full_name/#{repo.full_name}"
       Dir.entries(dir).sort - [".", ".."]
     end
 
     p basenames.group_by(&:itself).to_h.transform_values(&:count)
+
+    Rosarium::EXECUTOR.wait_until_idle
   end
 
   private
@@ -48,7 +56,7 @@ class GithubMirror
     )
   end
 
-  def repo_enum
+  def github_repo_enum
     ttl = config['repositories_list_ttl'].to_i
 
     require 'github_mirror/cacheing_thing'
@@ -58,24 +66,23 @@ class GithubMirror
     end
   end
 
-  def repos
-    # Reads the entire repo list before returning it. Favours code simplicity over concurrency.
+  def each_repo_summary(*args)
+    return enum_for(:each_repo_summary, *args) unless block_given?
 
-    @repos ||= begin
-                 all = []
-                 repo_enum.each { |r| all << r } # Ugh
+    github_repo_enum.each do |github_repo|
+      repo_summary = RepoSummary.new.tap do |s|
+        s.id = github_repo["id"]
+        s.full_name = github_repo["full_name"]
+        s.owner_name = github_repo["owner"]["login"]
+        s.ssh_url = github_repo["ssh_url"]
+        s.pushed_at = github_repo["pushed_at"]
+        s.default_branch = github_repo["default_branch"]
+      end
 
-                 all.map do |repo|
-                   RepoSummary.new.tap do |s|
-                     s.id = repo["id"]
-                     s.full_name = repo["full_name"]
-                     s.owner_name = repo["owner"]["login"]
-                     s.ssh_url = repo["ssh_url"]
-                     s.pushed_at = repo["pushed_at"]
-                     s.default_branch = repo["default_branch"]
-                   end
-                 end
-               end
+      next unless config['github']['allow_orgs'].include?(repo_summary.owner_name)
+
+      yield repo_summary
+    end
   end
 
 end
