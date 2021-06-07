@@ -21,7 +21,9 @@ class GithubMirror
       require 'json'
 
       return if with_fresh_file do |f|
-        JSON.load(f).each do |v|
+        all = JSON.load(f)
+        @logger.puts "Loaded #{all.count} repos from #{@filename}"
+        all.each do |v|
           yield v
         end
       end
@@ -40,6 +42,7 @@ class GithubMirror
         f.print "]\n"
       end
       File.rename tmp, @filename
+      @logger.puts "Saved #{i} repos to #{@filename}"
 
       nil
     end
