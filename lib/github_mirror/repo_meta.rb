@@ -63,8 +63,8 @@ class GithubMirror
       @data = JSON.parse(IO.read(meta_path))
       @dirty = false
     rescue Errno::ENOENT
+      @data = {}
       @dirty = true
-      {}
     end
 
     def save
