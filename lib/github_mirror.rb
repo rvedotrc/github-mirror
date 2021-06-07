@@ -60,10 +60,16 @@ class GithubMirror
     ttl = config['repositories_list_ttl'].to_i
 
     require 'github_mirror/cacheing_thing'
-    GithubMirror::CacheingThing.new(REPOSITORIES_FILE, Time.now - ttl, logger: @logger.nest("repositories-cache ")) do
-      require 'github_mirror/github_paginating_enumerator'
-      github_client.repos.list.lazy_each(logger: @logger.nest('repositories-enum '))
-    end
+    require 'github_mirror/github_api_lazy_repository_list'
+    GithubMirror::CacheingThing.new(
+      REPOSITORIES_FILE,
+      Time.now - ttl,
+      GithubMirror::GithubAPILazyRepositoryList.new(
+        github_client,
+        logger: @logger.nest("repositories-lister "),
+      ),
+      logger: @logger.nest("repositories-cache "),
+    )
   end
 
   def each_repo_summary(*args)

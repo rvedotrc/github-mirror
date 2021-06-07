@@ -1,19 +1,3 @@
-require 'github_api'
-
-# Patch a github api response to add lazy_each
-class Github::ResponseWrapper
-  def lazy_each(logger:, &block)
-    e = GithubMirror::GithubPaginatingEnumerator.new(self, logger: logger)
-    if block_given?
-      e.each(&block)
-    else
-      e
-    end
-  end
-end
-
-# Implementation of lazy_each. An iterator which yields each item
-# in the page, and automatically fetches the next page, until done.
 class GithubMirror
   class GithubPaginatingEnumerator
 

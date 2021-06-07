@@ -8,10 +8,10 @@ require 'json'
 
 class GithubMirror
   class CacheingThing
-    def initialize(filename, cutoff_time, logger:, &block)
+    def initialize(filename, cutoff_time, enumerable, logger:)
       @filename = filename
       @cutoff_time = cutoff_time
-      @block = block
+      @enumerable = enumerable
       @logger = logger
     end
 
@@ -32,8 +32,7 @@ class GithubMirror
       i = 0
       File.open(tmp, 'w') do |f|
         f.print '['
-        e = @block.call
-        e.each do |v|
+        @enumerable.each do |v|
           f.print ',' unless i == 0
           i += 1
           JSON.dump(v, f)
