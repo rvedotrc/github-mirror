@@ -57,7 +57,7 @@ class GithubMirror
 
       begin
         if f and f.stat.mtime > @cutoff_time
-          @logger.puts "Using fresh (#{(f.stat.mtime - @cutoff_time).to_i} sec old) file"
+          @logger.puts "Using fresh (#{(Time.now - f.stat.mtime).to_i} sec old) file"
           yield f
           true
         else
