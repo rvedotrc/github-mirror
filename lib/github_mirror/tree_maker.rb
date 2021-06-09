@@ -17,24 +17,21 @@ class GithubMirror
       return if last_fetched_at.nil?
       return if last_fetched_at == meta.get(:tree, :last_updated_at)
 
-      checkout_dir = "#{canonical_dir}/#{CHECKOUT_DIR}"
+      mirror_dir = "#{canonical_dir}/#{MIRROR_DIR}"
 
       require 'github_mirror/git_command_runner'
       answer = GitCommandRunner.run(
-        "git", "show-ref", "refs/heads/#{default_branch}",
-        chdir: checkout_dir,
+        "git", "show-ref", "--verify", "refs/origin/heads/#{default_branch}",
+        chdir: mirror_dir,
       )
 
-      return if answer[:status].exitstatus == 1
+      return if answer[:status].exitstatus == 128
 
-      refs = answer[:out].lines.map(&:chomp).select { |t| t.end_with?(" refs/heads/#{default_branch}") }
-      refs.count == 1 or raise "Expected 1 ref, got #{refs.inspect} from #{answer.inspect}"
-
-      commit = refs.first.split(' ')[0]
+      commit = answer[:out].split(' ')[0]
 
       binary_tree = GitCommandRunner.run!(
         "git", "ls-tree", "-z", "-r", "-l", "-t", commit,
-        chdir: checkout_dir,
+        chdir: mirror_dir,
       )[:out]
 
       tree = binary_tree.each_line("\0").map do |l|
