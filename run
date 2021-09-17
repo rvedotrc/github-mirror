@@ -1,5 +1,7 @@
 #!/bin/sh
 
+cd "$( dirname "$0" )"
+
 if [ $# = 0 ] ; then
   exec with-ruby - bundle exec ./bin/mirror
 else
