@@ -51,11 +51,12 @@ class GithubMirror
       # In case it's been renamed
       GitCommandRunner.run!("git", "config", "remote.origin.url", ssh_url, chdir: @checkout_dir)
 
-      GitCommandRunner.run!("git", "fetch", chdir: @checkout_dir)
+      GitCommandRunner.run!("git", "fetch", "--prune", chdir: @checkout_dir)
 
       # In case the default branch has changed
       GitCommandRunner.run!("git", "checkout", default_branch.sub("refs/heads/", ""), chdir: @checkout_dir)
 
+      # FIXME: can fail with "refusing to merge unrelated histories"
       GitCommandRunner.run!("git", "merge", chdir: @checkout_dir)
     end
 
