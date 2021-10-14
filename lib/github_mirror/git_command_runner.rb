@@ -6,12 +6,38 @@
 class GithubMirror
   class GitCommandRunner
 
-    def self.run(*args)
-      new.run(*args)
-    end
+    @mutex = Mutex.new
+    @sleep_duration = 1.0
 
-    def self.run!(*args)
-      new.run!(*args)
+    def self.remote_rate_limit(logger)
+      loop do
+        answer = yield
+
+        fail = !answer[:status].success? && answer[:err].match(/fatal: Could not read from remote repository|fatal: The remote end hung up unexpectedly/)
+
+        if fail
+          this_sleep = @mutex.synchronize do
+            if @sleep_duration < 60
+              @sleep_duration *= 1.5
+            end
+          end
+
+          answer[:err].each_line.map(&:chomp).each {|t| @logger.puts t }
+          logger.puts "Could not read from remote repository - will wait #{this_sleep.ceil}s and retry"
+          sleep this_sleep
+          logger.puts "Trying again"
+
+          redo
+        end
+
+        @mutex.synchronize do
+          if @sleep_duration >= 2.0
+            @sleep_duration /= 2.0
+          end
+        end
+
+        break answer
+      end
     end
 
     def initialize(logger: nil)
@@ -21,8 +47,6 @@ class GithubMirror
 
     def run(*args)
       require 'tempfile'
-
-      sleep_duration = 1.0
 
       Tempfile.open do |out|
         Tempfile.open do |err|
@@ -43,34 +67,22 @@ class GithubMirror
           err.rewind
 
           answer = { out: out.read, err: err.read, status: $? }
-
-          if answer[:err].match(/fatal: Could not read from remote repository|fatal: The remote end hung up unexpectedly/)
-            if sleep_duration < 60
-              sleep_duration *= 1.5
-            end
-            answer[:err].each_line.map(&:chomp).each {|t| @logger.puts t }
-            @logger.puts "Could not read from remote repository - will wait #{sleep_duration.ceil}s and retry"
-            sleep sleep_duration
-            @logger.puts "Trying again"
-
-            out.rewind
-            err.rewind
-            out.truncate(0)
-            err.truncate(0)
-            redo
-          end
-
           # puts "#{args.inspect} => #{answer.inspect}"
           answer
         end
       end
     end
 
-    def run!(*args)
-      r = run *args
+    def remote_rate_limit(&block)
+      self.class.remote_rate_limit(@logger, &block)
+    end
+
+    def raise_on_error
+      r = yield
 
       unless r[:status].success?
-        raise "#{args.inspect} failed: #{r[:err]} #{r[:out]}"
+        # but with what args?
+        raise "git failed: #{r[:err]} #{r[:out]}"
       end
 
       r

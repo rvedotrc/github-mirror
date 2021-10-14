@@ -8,9 +8,12 @@ class GithubMirror
       @meta = meta
       @default_branch = default_branch
       @logger = logger
+
+      require 'github_mirror/git_command_runner'
+      @gcr = GitCommandRunner.new(logger: @logger)
     end
 
-    attr_reader :canonical_dir, :meta, :default_branch
+    attr_reader :canonical_dir, :meta, :default_branch, :gcr
 
     def update
       last_fetched_at = meta.get(:mirror, :last_fetched_at)
@@ -19,20 +22,30 @@ class GithubMirror
 
       mirror_dir = "#{canonical_dir}/#{MIRROR_DIR}"
 
-      require 'github_mirror/git_command_runner'
-      answer = GitCommandRunner.run(
-        "git", "show-ref", "--verify", "refs/origin/heads/#{default_branch}",
-        chdir: mirror_dir,
-      )
+      answer = gcr.raise_on_error do
+        r = gcr.run(
+          "git", "show-ref", "--verify", "refs/origin/heads/#{default_branch}",
+          chdir: mirror_dir,
+        )
 
-      return if answer[:status].exitstatus == 128
+        if r[:status].exitstatus == 128 && r[:err].include?("not a valid ref")
+          r[:not_a_valid_ref] = true
+          r[:status] = Struct.new(:success?).new(true)
+        end
+
+        r
+      end
+
+      return if answer[:not_a_valid_ref]
 
       commit = answer[:out].split(' ')[0]
 
-      binary_tree = GitCommandRunner.run!(
-        "git", "ls-tree", "-z", "-r", "-l", "-t", commit,
-        chdir: mirror_dir,
-      )[:out]
+      binary_tree = gcr.raise_on_error do
+        gcr.run(
+          "git", "ls-tree", "-z", "-r", "-l", "-t", commit,
+          chdir: mirror_dir,
+        )
+      end[:out]
 
       tree = binary_tree.each_line("\0").map do |l|
         l.chomp!("\0")

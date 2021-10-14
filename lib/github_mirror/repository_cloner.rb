@@ -40,11 +40,16 @@ class GithubMirror
       FileUtils.rm_rf(target)
       FileUtils.rm_rf(tmp)
 
-      system "git", "clone",
-        "--bare",
-        "--config", 'remote.origin.fetch=+refs/*:refs/origin/*',
-        ssh_url, tmp
-      $?.success? or raise "git clone #{full_name} failed"
+      gcr.raise_on_error do
+        gcr.remote_rate_limit do
+          gcr.run(
+            "git", "clone",
+            "--bare",
+            "--config", 'remote.origin.fetch=+refs/*:refs/origin/*',
+            ssh_url, tmp
+          )
+        end
+      end
 
       File.rename tmp, target
 
@@ -62,24 +67,30 @@ class GithubMirror
 
     def do_fetch
       # In case it's been renamed
-      gcr.run!("git", "--git-dir", target, "config", "remote.origin.url", ssh_url)
-
-      require 'tempfile'
-      Tempfile.open do |t|
-        r = gcr.run("git", "--git-dir", target, "fetch", "--prune")
-
-        r[:out].each_line { |line| @logger.puts(line) }
-        r[:err].each_line { |line| @logger.puts(line) }
-
-        break if r[:status].success?
-
-        if r[:out].match(/\Afatal: Couldn't find remote ref HEAD\n*\z/)
-          @logger.puts "#{full_name} is an empty repository"
-          next
-        end
-
-        raise "git fetch #{full_name} failed: #{r[:out]} #{r[:err]}"
+      gcr.raise_on_error do
+        gcr.run("git", "--git-dir", target, "config", "remote.origin.url", ssh_url)
       end
+
+      r = gcr.raise_on_error do
+        gcr.remote_rate_limit do
+          r2 = gcr.run("git", "--git-dir", target, "fetch", "--prune")
+
+          if !r2[:status].success? && r2[:out].match(/\Afatal: Couldn't find remote ref HEAD\n*\z/)
+            r2[:empty_repo] = true
+            r2[:status] = Struct.new(:success?).new(true)
+          end
+
+          r2
+        end
+      end
+
+      if r[:empty_repo]
+        @logger.puts "#{full_name} is an empty repository"
+        return
+      end
+
+      r[:out].each_line { |line| @logger.puts(line) }
+      r[:err].each_line { |line| @logger.puts(line) }
     end
 
   end

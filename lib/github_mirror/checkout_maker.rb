@@ -50,19 +50,30 @@ class GithubMirror
 
     def pull
       # In case it's been renamed
-      gcr.run!("git", "config", "remote.origin.url", ssh_url, chdir: @checkout_dir)
+      gcr.raise_on_error do
+        gcr.run("git", "config", "remote.origin.url", ssh_url, chdir: @checkout_dir)
+      end
 
-      gcr.run!("git", "fetch", "--prune", chdir: @checkout_dir)
+      gcr.raise_on_error do
+        gcr.remote_rate_limit do
+          gcr.run("git", "fetch", "--prune", chdir: @checkout_dir)
+        end
+      end
 
       unless clean?
         raise "Refusing to 'git checkout' in #{@checkout_dir} because of non-clean status"
       end
 
-      gcr.run!("git", "checkout", "origin/#{default_branch}", chdir: @checkout_dir)
+      gcr.raise_on_error do
+        gcr.run("git", "checkout", "origin/#{default_branch}", chdir: @checkout_dir)
+      end
     end
 
     def clean?
-      result = gcr.run!("git", "status", "--porcelain", chdir: @checkout_dir)
+      result = gcr.raise_on_error do
+        gcr.run("git", "status", "--porcelain", chdir: @checkout_dir)
+      end
+
       result[:out] == ""
     end
 
