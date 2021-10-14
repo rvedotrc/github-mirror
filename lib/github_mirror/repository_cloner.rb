@@ -10,6 +10,9 @@ class GithubMirror
       @full_name = full_name
       @meta = meta
       @logger = logger
+
+      require 'github_mirror/git_command_runner'
+      @gcr = GitCommandRunner.new(logger: logger)
     end
 
     def mirror
@@ -21,6 +24,8 @@ class GithubMirror
     end
 
     private
+
+    attr_reader :gcr
 
     def target
       "#{canonical_dir}/#{MIRROR_DIR}"
@@ -57,30 +62,23 @@ class GithubMirror
 
     def do_fetch
       # In case it's been renamed
-      require 'github_mirror/git_command_runner'
-      GitCommandRunner.run!("git", "--git-dir", target, "config", "remote.origin.url", ssh_url)
+      gcr.run!("git", "--git-dir", target, "config", "remote.origin.url", ssh_url)
 
       require 'tempfile'
       Tempfile.open do |t|
-        Process.wait(Process.spawn(
-          "git", "--git-dir", target, "fetch", "--prune",
-          out: t,
-          err: t,
-        ))
-        t.rewind
+        r = gcr.run("git", "--git-dir", target, "fetch", "--prune")
 
-        t.each_line { |line| @logger.puts(line) }
-        next if $?.success?
+        r[:out].each_line { |line| @logger.puts(line) }
+        r[:err].each_line { |line| @logger.puts(line) }
 
-        t.rewind
-        log = t.read
+        break if r[:status].success?
 
-        if log.match(/\Afatal: Couldn't find remote ref HEAD\n*\z/)
+        if r[:out].match(/\Afatal: Couldn't find remote ref HEAD\n*\z/)
           @logger.puts "#{full_name} is an empty repository"
           next
         end
 
-        raise "git fetch #{full_name} failed: #{log}"
+        raise "git fetch #{full_name} failed: #{r[:out]} #{r[:err]}"
       end
     end
 

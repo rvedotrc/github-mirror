@@ -12,6 +12,9 @@ class GithubMirror
 
       @mirror_dir = File.join(canonical_dir, MIRROR_DIR)
       @checkout_dir = File.join(canonical_dir, CHECKOUT_DIR)
+
+      require 'github_mirror/git_command_runner'
+      @gcr = GitCommandRunner.new(logger: @logger)
     end
 
     def mirror
@@ -31,7 +34,7 @@ class GithubMirror
 
     private
 
-    attr_reader :mirror_dir, :checkout_dir
+    attr_reader :mirror_dir, :checkout_dir, :gcr
 
     def clone
       system(
@@ -46,14 +49,21 @@ class GithubMirror
     end
 
     def pull
-      require 'github_mirror/git_command_runner'
-
       # In case it's been renamed
-      GitCommandRunner.run!("git", "config", "remote.origin.url", ssh_url, chdir: @checkout_dir)
+      gcr.run!("git", "config", "remote.origin.url", ssh_url, chdir: @checkout_dir)
 
-      GitCommandRunner.run!("git", "fetch", "--prune", chdir: @checkout_dir)
+      gcr.run!("git", "fetch", "--prune", chdir: @checkout_dir)
 
-      GitCommandRunner.run!("git", "checkout", "origin/#{default_branch}", chdir: @checkout_dir)
+      unless clean?
+        raise "Refusing to 'git checkout' in #{@checkout_dir} because of non-clean status"
+      end
+
+      gcr.run!("git", "checkout", "origin/#{default_branch}", chdir: @checkout_dir)
+    end
+
+    def clean?
+      result = gcr.run!("git", "status", "--porcelain", chdir: @checkout_dir)
+      result[:out] == ""
     end
 
   end

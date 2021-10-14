@@ -7,7 +7,23 @@ class GithubMirror
   class GitCommandRunner
 
     def self.run(*args)
+      new.run(*args)
+    end
+
+    def self.run!(*args)
+      new.run!(*args)
+    end
+
+    def initialize(logger: nil)
+      logger ||= PrefixedLogger.new
+      @logger = logger
+    end
+
+    def run(*args)
       require 'tempfile'
+
+      sleep_duration = 1.0
+
       Tempfile.open do |out|
         Tempfile.open do |err|
           args = args.dup
@@ -25,12 +41,32 @@ class GithubMirror
 
           out.rewind
           err.rewind
-          { out: out.read, err: err.read, status: $? }
+
+          answer = { out: out.read, err: err.read, status: $? }
+
+          if answer[:err].match(/fatal: Could not read from remote repository|fatal: The remote end hung up unexpectedly/)
+            if sleep_duration < 60
+              sleep_duration *= 1.5
+            end
+            answer[:err].each_line.map(&:chomp).each {|t| @logger.puts t }
+            @logger.puts "Could not read from remote repository - will wait #{sleep_duration.ceil}s and retry"
+            sleep sleep_duration
+            @logger.puts "Trying again"
+
+            out.rewind
+            err.rewind
+            out.truncate(0)
+            err.truncate(0)
+            redo
+          end
+
+          # puts "#{args.inspect} => #{answer.inspect}"
+          answer
         end
       end
     end
 
-    def self.run!(*args)
+    def run!(*args)
       r = run *args
 
       unless r[:status].success?
