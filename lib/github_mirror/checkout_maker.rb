@@ -37,43 +37,31 @@ class GithubMirror
     attr_reader :mirror_dir, :checkout_dir, :gcr
 
     def clone
-      gcr.raise_on_error do
-        gcr.run(
-          "git",
-          "clone",
-          "--reference", MIRROR_DIR,
-          @ssh_url,
-          CHECKOUT_DIR,
-          chdir: canonical_dir,
-        )
-      end
+      gcr.run(
+        "git",
+        "clone",
+        "--reference", MIRROR_DIR,
+        @ssh_url,
+        CHECKOUT_DIR,
+        chdir: canonical_dir,
+      )
     end
 
     def pull
       # In case it's been renamed
-      gcr.raise_on_error do
-        gcr.run("git", "config", "remote.origin.url", ssh_url, chdir: @checkout_dir)
-      end
+      gcr.run("git", "config", "remote.origin.url", ssh_url, chdir: @checkout_dir)
 
-      gcr.raise_on_error do
-        gcr.remote_rate_limit do
-          gcr.run("git", "fetch", "--prune", chdir: @checkout_dir)
-        end
-      end
+      gcr.run("git", "fetch", "--prune", chdir: @checkout_dir, uses_remote: true)
 
       unless clean?
         raise "Refusing to 'git checkout' in #{@checkout_dir} because of non-clean status"
       end
 
-      gcr.raise_on_error do
-        gcr.run("git", "checkout", "origin/#{default_branch}", chdir: @checkout_dir)
-      end
+      gcr.run("git", "checkout", "origin/#{default_branch}", chdir: @checkout_dir)
     end
 
     def clean?
-      result = gcr.raise_on_error do
-        gcr.run("git", "status", "--porcelain", chdir: @checkout_dir)
-      end
+      result = gcr.run("git", "status", "--porcelain", chdir: @checkout_dir)
 
       result[:out] == ""
     end

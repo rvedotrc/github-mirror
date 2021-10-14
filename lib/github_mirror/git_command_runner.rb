@@ -46,6 +46,35 @@ class GithubMirror
     end
 
     def run(*args)
+      opts = if args.last.is_a?(Hash)
+               args.last
+             else
+               {}
+             end
+
+      uses_remote = opts.delete(:uses_remote)
+      catch = opts.delete(:catch)
+
+      r = if uses_remote
+            self.class.remote_rate_limit(@logger) { run_plain(*args) }
+          else
+            run_plain(*args)
+          end
+
+      if catch && !r[:status].success?
+        r = catch.call(r)
+      end
+
+      if !r[:status].success?
+        raise "git #{args} failed: #{r[:err]} #{r[:out]}"
+      else
+        r
+      end
+    end
+
+    private
+
+    def run_plain(*args)
       require 'tempfile'
 
       Tempfile.open do |out|
@@ -71,21 +100,6 @@ class GithubMirror
           answer
         end
       end
-    end
-
-    def remote_rate_limit(&block)
-      self.class.remote_rate_limit(@logger, &block)
-    end
-
-    def raise_on_error
-      r = yield
-
-      unless r[:status].success?
-        # but with what args?
-        raise "git failed: #{r[:err]} #{r[:out]}"
-      end
-
-      r
     end
 
   end

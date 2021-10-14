@@ -40,16 +40,13 @@ class GithubMirror
       FileUtils.rm_rf(target)
       FileUtils.rm_rf(tmp)
 
-      gcr.raise_on_error do
-        gcr.remote_rate_limit do
-          gcr.run(
-            "git", "clone",
-            "--bare",
-            "--config", 'remote.origin.fetch=+refs/*:refs/origin/*',
-            ssh_url, tmp
-          )
-        end
-      end
+      gcr.run(
+        "git", "clone",
+        "--bare",
+        "--config", 'remote.origin.fetch=+refs/*:refs/origin/*',
+        ssh_url, tmp,
+        uses_remote: true,
+      )
 
       File.rename tmp, target
 
@@ -67,22 +64,20 @@ class GithubMirror
 
     def do_fetch
       # In case it's been renamed
-      gcr.raise_on_error do
-        gcr.run("git", "--git-dir", target, "config", "remote.origin.url", ssh_url)
-      end
+      gcr.run("git", "--git-dir", target, "config", "remote.origin.url", ssh_url)
 
-      r = gcr.raise_on_error do
-        gcr.remote_rate_limit do
-          r2 = gcr.run("git", "--git-dir", target, "fetch", "--prune")
-
-          if !r2[:status].success? && r2[:out].match(/\Afatal: Couldn't find remote ref HEAD\n*\z/)
+      r = gcr.run(
+        "git", "--git-dir", target, "fetch", "--prune",
+        uses_remote: true,
+        catch: -> (r2) do
+          if r2[:out].match(/\Afatal: Couldn't find remote ref HEAD\n*\z/)
             r2[:empty_repo] = true
             r2[:status] = Struct.new(:success?).new(true)
           end
 
           r2
-        end
-      end
+        end,
+      )
 
       if r[:empty_repo]
         @logger.puts "#{full_name} is an empty repository"
