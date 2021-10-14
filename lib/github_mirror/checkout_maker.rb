@@ -37,15 +37,16 @@ class GithubMirror
     attr_reader :mirror_dir, :checkout_dir, :gcr
 
     def clone
-      system(
-        "git",
-        "clone",
-        "--reference", MIRROR_DIR,
-        @ssh_url,
-        CHECKOUT_DIR,
-        chdir: canonical_dir,
-      )
-      $?.success? or raise
+      gcr.raise_on_error do
+        gcr.run(
+          "git",
+          "clone",
+          "--reference", MIRROR_DIR,
+          @ssh_url,
+          CHECKOUT_DIR,
+          chdir: canonical_dir,
+        )
+      end
     end
 
     def pull
