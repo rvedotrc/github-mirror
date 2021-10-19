@@ -63,7 +63,7 @@ class GithubMirror
     def clean?
       result = gcr.run("git", "status", "--porcelain", chdir: @checkout_dir)
 
-      result[:out] == ""
+      result.out == ""
     end
 
   end

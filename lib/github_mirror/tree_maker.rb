@@ -26,23 +26,23 @@ class GithubMirror
         "git", "show-ref", "--verify", "refs/origin/heads/#{default_branch}",
         chdir: mirror_dir,
         catch: -> (r) do
-          if r[:status].exitstatus == 128 && r[:err].include?("not a valid ref")
-            r[:not_a_valid_ref] = true
-            r[:status] = Struct.new(:success?).new(true)
+          if r.exitstatus == 128 && r.err.include?("not a valid ref")
+            r.error_tag = :not_a_valid_ref
+            r[:success?] = true
           end
 
           r
         end,
       )
 
-      return if answer[:not_a_valid_ref]
+      return if answer.error_tag == :not_a_valid_ref
 
-      commit = answer[:out].split(' ')[0]
+      commit = answer.out.split(' ')[0]
 
       binary_tree = gcr.run(
         "git", "ls-tree", "-z", "-r", "-l", "-t", commit,
         chdir: mirror_dir,
-      )[:out]
+      ).out
 
       tree = binary_tree.each_line("\0").map do |l|
         l.chomp!("\0")

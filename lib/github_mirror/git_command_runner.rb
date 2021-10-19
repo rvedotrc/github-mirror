@@ -6,23 +6,36 @@
 class GithubMirror
   class GitCommandRunner
 
+    Result = Struct.new(
+      :out, :err, :exitstatus, :success?, :error_tag,
+      keyword_init: true
+    )
+
     @mutex = Mutex.new
     @sleep_duration = 1.0
+
+    def self.adjust(failed:)
+      adjustment = failed ? 1.5 : 0.5
+      @mutex.synchronize do
+        answer = @sleep_duration
+        @sleep_duration = @sleep_duration * adjustment
+        @sleep_duration = [@sleep_duration, 1.0].max
+        @sleep_duration = [@sleep_duration, 60.0].min
+        answer
+      end
+    end
 
     def self.remote_rate_limit(logger)
       loop do
         answer = yield
+        p [answer.success?, answer.exitstatus, answer.err]
 
-        fail = !answer[:status].success? && answer[:err].match(/fatal: Could not read from remote repository|fatal: The remote end hung up unexpectedly/)
+        fail = !answer.success? && answer.err.match(/fatal: Could not read from remote repository|fatal: The remote end hung up unexpectedly/)
 
         if fail
-          this_sleep = @mutex.synchronize do
-            if @sleep_duration < 60
-              @sleep_duration *= 1.5
-            end
-          end
+          this_sleep = adjust(failed: true)
 
-          answer[:err].each_line.map(&:chomp).each {|t| @logger.puts t }
+          answer.err.each_line.map(&:chomp).each {|t| logger.puts t }
           logger.puts "Could not read from remote repository - will wait #{this_sleep.ceil}s and retry"
           sleep this_sleep
           logger.puts "Trying again"
@@ -30,11 +43,7 @@ class GithubMirror
           redo
         end
 
-        @mutex.synchronize do
-          if @sleep_duration >= 2.0
-            @sleep_duration /= 2.0
-          end
-        end
+        adjust(failed: false)
 
         break answer
       end
@@ -56,23 +65,25 @@ class GithubMirror
       catch = opts.delete(:catch)
 
       r = if uses_remote
-            self.class.remote_rate_limit(@logger) { run_plain(*args) }
+            self.class.remote_rate_limit(logger) { run_plain(*args) }
           else
             run_plain(*args)
           end
 
-      if catch && !r[:status].success?
+      if catch && !r.success?
         r = catch.call(r)
       end
 
-      if !r[:status].success?
-        raise "git #{args} failed: #{r[:err]} #{r[:out]}"
+      if !r.success?
+        raise "git #{args} failed: #{r.err} #{r.out}"
       else
         r
       end
     end
 
     private
+
+    attr_reader :logger
 
     def run_plain(*args)
       require 'tempfile'
@@ -95,7 +106,12 @@ class GithubMirror
           out.rewind
           err.rewind
 
-          answer = { out: out.read, err: err.read, status: $? }
+          answer = Result.new(
+            out: out.read,
+            err: err.read,
+            exitstatus: $?.exitstatus,
+            success?: $?.success?,
+          )
           # puts "#{args.inspect} => #{answer.inspect}"
           answer
         end

@@ -70,22 +70,22 @@ class GithubMirror
         "git", "--git-dir", target, "fetch", "--prune",
         uses_remote: true,
         catch: -> (r2) do
-          if r2[:out].match(/\Afatal: Couldn't find remote ref HEAD\n*\z/)
-            r2[:empty_repo] = true
-            r2[:status] = Struct.new(:success?).new(true)
+          if r2.out.match(/\Afatal: Couldn't find remote ref HEAD\n*\z/)
+            r2.error_tag = :empty_repo
+            r2[:success?] = true
           end
 
           r2
         end,
       )
 
-      if r[:empty_repo]
+      if r.error_tag == :empty_repo
         @logger.puts "#{full_name} is an empty repository"
         return
       end
 
-      r[:out].each_line { |line| @logger.puts(line) }
-      r[:err].each_line { |line| @logger.puts(line) }
+      r.out.each_line { |line| @logger.puts(line) }
+      r.err.each_line { |line| @logger.puts(line) }
     end
 
   end
