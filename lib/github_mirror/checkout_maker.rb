@@ -34,7 +34,7 @@ class GithubMirror
 
     private
 
-    attr_reader :mirror_dir, :checkout_dir, :gcr
+    attr_reader :logger, :mirror_dir, :checkout_dir, :gcr
 
     def clone
       gcr.run(
@@ -62,8 +62,19 @@ class GithubMirror
 
     def clean?
       result = gcr.run("git", "status", "--porcelain", chdir: @checkout_dir)
+      return true if result.out == ""
 
-      result.out == ""
+      files = gcr.run("git", "ls-files", "-z", chdir: @checkout_dir).out.split("\0")
+
+      # If we're in case-sensitivity hell, just pretend everything is fine.
+      # (It could simply be that file 'Foo' and 'foo' are conflicting, and therefore
+      # always showing as "locally" modified).
+      if files.count != files.map(&:downcase).uniq.count
+        logger.puts "Ignoring cleanness check because of case clash (may be impossible to check out cleanly)"
+        return true
+      end
+
+      false
     end
 
   end
