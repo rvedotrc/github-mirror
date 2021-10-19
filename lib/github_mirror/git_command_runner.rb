@@ -28,7 +28,6 @@ class GithubMirror
     def self.remote_rate_limit(logger)
       loop do
         answer = yield
-        p [answer.success?, answer.exitstatus, answer.err]
 
         fail = !answer.success? && answer.err.match(/fatal: Could not read from remote repository|fatal: The remote end hung up unexpectedly/)
 
