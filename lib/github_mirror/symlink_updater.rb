@@ -1,3 +1,5 @@
+require 'find'
+
 class GithubMirror
   class SymlinkUpdater
 
@@ -14,7 +16,9 @@ class GithubMirror
         [ "#{clone_base_dir}/full_name/#{repo.full_name}", "../../id/#{repo.id}" ]
       end.to_h
 
-      existing_symlinks = Dir.glob("#{clone_base_dir}/full_name/*/*").map do |path|
+
+      base_slash_count = clone_base_dir.count('/')
+      existing_symlinks = Find.find("#{clone_base_dir}/full_name").select { |path| path.count('/') == base_slash_count + 3 }.map do |path|
         target = File.readlink(path)
         [ path, target ]
       end.to_h
