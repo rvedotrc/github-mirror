@@ -29,7 +29,21 @@ class GithubMirror
       loop do
         answer = yield
 
-        fail = !answer.success? && answer.err.match(/fatal: Could not read from remote repository|fatal: The remote end hung up unexpectedly/)
+        # clone-all zendesk/viticult checkout kex_exchange_identification: read: Connection reset by peer
+        # clone-all zendesk/viticult checkout fatal: Could not read from remote repository.
+        # clone-all zendesk/viticult checkout
+        # clone-all zendesk/viticult checkout Please make sure you have the correct access rights
+        # clone-all zendesk/viticult checkout and the repository exists.
+        # clone-all zendesk/viticult checkout Could not read from remote repository - will wait 58s and retry
+
+        # clone-all zendesk/zendesk_protobuf_schemas checkout kex_exchange_identification: Connection closed by remote host
+        # clone-all zendesk/zendesk_protobuf_schemas checkout fatal: Could not read from remote repository.
+        # clone-all zendesk/zendesk_protobuf_schemas checkout
+        # clone-all zendesk/zendesk_protobuf_schemas checkout Please make sure you have the correct access rights
+        # clone-all zendesk/zendesk_protobuf_schemas checkout and the repository exists.
+        # clone-all zendesk/zendesk_protobuf_schemas checkout Could not read from remote repository - will wait 2s and retry
+
+        fail = !answer.success? && answer.err.match(/kex_exchange_identification/)
 
         if fail
           this_sleep = adjust(failed: true)
